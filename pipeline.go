@@ -56,9 +56,7 @@ func (p *Pipeline) WithAbortHandler(handler Handler) *Pipeline {
 
 func (p *Pipeline) AsNestedStep(name string, predicate Predicate) Step {
 	return NewStepWithPredicate(name, func() Result {
-		nested := NewPipeline()
-		nested.steps = p.steps
-		nested.abortHandler = p.abortHandler
+		nested := &Pipeline{log: p.log, abortHandler: p.abortHandler, steps: p.steps}
 		return nested.runPipeline()
 	}, predicate)
 }
