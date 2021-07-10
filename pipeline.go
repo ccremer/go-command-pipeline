@@ -17,13 +17,11 @@ type (
 	Step struct {
 		Name string
 		F    ActionFunc
-		P    Predicate
 	}
 	Logger interface {
 		Log(message, name string)
 	}
 	ActionFunc func() Result
-	Predicate  func(step Step) bool
 	Handler    func(result Result)
 
 	nullLogger struct{}
@@ -54,15 +52,19 @@ func (p *Pipeline) WithAbortHandler(handler Handler) *Pipeline {
 	return p
 }
 
-func (p *Pipeline) AsNestedStep(name string, predicate Predicate) Step {
-	return NewStepWithPredicate(name, func() Result {
+func (p *Pipeline) AsNestedStep(name string) Step {
+	return NewStep(name, func() Result {
 		nested := &Pipeline{log: p.log, abortHandler: p.abortHandler, steps: p.steps}
 		return nested.runPipeline()
-	}, predicate)
+	})
 }
 
 func (r Result) IsSuccessful() bool {
 	return r.Err == nil
+}
+
+func (r Result) IsFailed() bool {
+	return r.Err != nil
 }
 
 func (p *Pipeline) Run() Result {
@@ -72,11 +74,6 @@ func (p *Pipeline) Run() Result {
 
 func (p *Pipeline) runPipeline() Result {
 	for _, step := range p.steps {
-		if step.P != nil && !step.P(step) {
-			p.log.Log("ignoring step", step.Name)
-			continue
-		}
-
 		p.log.Log("executing step", step.Name)
 
 		if r := step.F(); r.Abort || r.Err != nil {
@@ -99,29 +96,6 @@ func NewStep(name string, action ActionFunc) Step {
 		Name: name,
 		F:    action,
 	}
-}
-
-func NewStepWithPredicate(name string, action ActionFunc, predicate Predicate) Step {
-	return Step{
-		Name: name,
-		F:    action,
-		P:    predicate,
-	}
-}
-
-func NewIfElseStep(name string, predicate Predicate, trueAction, falseAction ActionFunc) Step {
-	step := Step{
-		Name: name,
-	}
-	fn := func() Result {
-		if predicate(step) {
-			return trueAction()
-		} else {
-			return falseAction()
-		}
-	}
-	step.F = fn
-	return step
 }
 
 func Abort() ActionFunc {
