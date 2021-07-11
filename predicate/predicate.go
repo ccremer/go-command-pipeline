@@ -38,6 +38,18 @@ func ToNestedStep(name string, p *pipeline.Pipeline, predicate Predicate) pipeli
 	return step
 }
 
+// WrapIn returns a new step that wraps the given step and executes its action only if the given Predicate evaluates true.
+func WrapIn(originalStep pipeline.Step, predicate Predicate) pipeline.Step {
+	wrappedStep := pipeline.Step{Name: originalStep.Name}
+	wrappedStep.F = func() pipeline.Result {
+		if predicate(wrappedStep) {
+			return originalStep.F()
+		}
+		return pipeline.Result{}
+	}
+	return wrappedStep
+}
+
 // Bool returns a Predicate that simply returns v when evaluated.
 func Bool(v bool) Predicate {
 	return func(step pipeline.Step) bool {
