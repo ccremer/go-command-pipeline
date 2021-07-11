@@ -6,17 +6,21 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ccremer/go-command-pipeline)][goreport]
 [![Codecov](https://img.shields.io/codecov/c/github/ccremer/go-command-pipeline?token=XGOC4XUMJ5)][codecov]
 
-Small Go utility that executes high-level actions in a pipeline fashion
+Small Go utility that executes high-level actions in a pipeline fashion.
+Especially useful when combined with the Facade design pattern.
 
 ## Usage
 
 ```go
-import pipeline "github.com/ccremer/go-command-pipeline"
+import (
+    pipeline "github.com/ccremer/go-command-pipeline"
+    "github.com/ccremer/go-command-pipeline/predicate"
+)
 
 func main() {
 	p := pipeline.NewPipeline()
 	p.WithSteps(
-		pipeline.NewStepWithPredicate("clone repository", CloneGitRepository(), pipeline.Not(DirExists("my-repo"))),
+		predicate.ToStep("clone repository", CloneGitRepository(), predicate.Not(DirExists("my-repo"))),
 		pipeline.NewStep("checkout branch", CheckoutBranch()),
 		pipeline.NewStep("pull", Pull()),
 	)
