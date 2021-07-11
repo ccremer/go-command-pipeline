@@ -5,6 +5,7 @@ import (
 
 	pipeline "github.com/ccremer/go-command-pipeline"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Predicates(t *testing.T) {
@@ -94,6 +95,38 @@ func TestToNestedStep(t *testing.T) {
 			step := ToNestedStep("super step", p, tt.givenPredicate)
 			_ = step.F()
 			assert.Equal(t, tt.expectedCounts, counter)
+		})
+	}
+}
+
+func TestWrapIn(t *testing.T) {
+	counter := 0
+	tests := map[string]struct {
+		givenPredicate Predicate
+		expectedCalls  int
+	}{
+		"GivenWrappedStep_WhenPredicateEvalsTrue_ThenRunAction": {
+			givenPredicate: truePredicate(&counter),
+			expectedCalls:  2,
+		},
+		"GivenWrappedStep_WhenPredicateEvalsFalse_ThenIgnoreAction": {
+			givenPredicate: falsePredicate(&counter),
+			expectedCalls:  -1,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			counter = 0
+			step := pipeline.NewStep("step", func() pipeline.Result {
+				counter++
+				return pipeline.Result{}
+			})
+			wrapped := WrapIn(step, tt.givenPredicate)
+			result := wrapped.F()
+			require.NoError(t, result.Err)
+			assert.Equal(t, tt.expectedCalls, counter)
+			assert.Equal(t, step.Name, wrapped.Name)
 		})
 	}
 }
