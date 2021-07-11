@@ -37,58 +37,6 @@ func TestPipeline_runPipeline(t *testing.T) {
 			expectedCalls:  0,
 			expectedResult: Result{Abort: true},
 		},
-		"GivenStepWithPredicate_WhenPredicateReturnsFalse_ThenIgnoreStep": {
-			givenSteps: []Step{
-				NewStepWithPredicate("test-step", func() Result {
-					callCount = 1
-					return Result{}
-				}, func(step Step) bool {
-					callCount = 2
-					return false
-				}),
-			},
-			expectedCalls:  2,
-			expectedResult: Result{},
-		},
-		"GivenStepWithPredicate_WhenPredicateReturnsTrue_ThenRunStep": {
-			givenSteps: []Step{
-				NewStepWithPredicate("test-step", func() Result {
-					callCount += 1
-					return Result{}
-				}, func(step Step) bool {
-					callCount += 1
-					return true
-				}),
-			},
-			expectedCalls:  2,
-			expectedResult: Result{},
-		},
-		"GivenIfElseStep_WhenPredicateReturnsTrue_ThenRunTrueAction": {
-			givenSteps: []Step{
-				NewIfElseStep("test-step", True(), func() Result {
-					callCount += 1
-					return Result{}
-				}, func() Result {
-					callCount -= 1
-					return Result{}
-				}),
-			},
-			expectedCalls:  1,
-			expectedResult: Result{},
-		},
-		"GivenIfElseStep_WhenPredicateReturnsFalse_ThenRunFalseAction": {
-			givenSteps: []Step{
-				NewIfElseStep("test-step", False(), func() Result {
-					callCount -= 1
-					return Result{}
-				}, func() Result {
-					callCount += 1
-					return Result{}
-				}),
-			},
-			expectedCalls:  1,
-			expectedResult: Result{},
-		},
 		"GivenAbortHandler_WhenAborted_ThenRunHandler": {
 			givenSteps: []Step{
 				NewStep("test-step", func() Result {
@@ -113,7 +61,7 @@ func TestPipeline_runPipeline(t *testing.T) {
 					WithSteps(NewStep("nested-step", func() Result {
 						callCount += 1
 						return Result{}
-					})).AsNestedStep("nested-pipeline", True()),
+					})).AsNestedStep("nested-pipeline"),
 			},
 			expectedCalls:  2,
 			expectedResult: Result{},

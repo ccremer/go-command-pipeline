@@ -30,3 +30,5 @@ jobs:
         uses: codecov/codecov-action@v1
         with:
           files: ./cover.out
+      - name: Trigger goreport refresh
+        uses: creekorful/goreportcard-action@v1.0
