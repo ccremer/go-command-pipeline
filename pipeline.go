@@ -7,15 +7,16 @@ import (
 type (
 	// Pipeline holds and runs intermediate actions, called "steps".
 	Pipeline struct {
-		log          Logger
-		steps        []Step
-		abortHandler Handler
+		log   Logger
+		steps []Step
 	}
 	// Result is the object that is returned after each step and after running a pipeline.
 	Result struct {
-		Abort bool
 		// Err contains the step's returned error, nil otherwise.
 		Err error
+		// Name is an optional identifier for a result.
+		// ActionFunc may set this property before returning to help an ResultHandler with further processing.
+		Name string
 	}
 	// Step is an intermediary action and part of a Pipeline.
 	Step struct {
@@ -23,7 +24,14 @@ type (
 		// It has no other uses other than easily identifying a step for debugging or logging.
 		Name string
 		// F is the ActionFunc assigned to a pipeline Step.
+		// This is required.
 		F ActionFunc
+		// H is the ResultHandler assigned to a pipeline Step.
+		// This is optional and it will be called in any case if it is set after F completed.
+		// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
+		// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
+		// This function is called before the next step's F is invoked.
+		H ResultHandler
 	}
 	// Logger is a simple interface that enables logging certain actions with your favourite logging framework.
 	Logger interface {
@@ -33,7 +41,8 @@ type (
 	}
 	// ActionFunc is the func that contains your business logic.
 	ActionFunc func() Result
-	Handler    func(result Result)
+	// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
+	ResultHandler func(result Result) error
 
 	nullLogger struct{}
 )
@@ -62,17 +71,12 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 	return p
 }
 
-func (p *Pipeline) WithAbortHandler(handler Handler) *Pipeline {
-	p.abortHandler = handler
-	return p
-}
-
 // AsNestedStep converts the Pipeline instance into a Step that can be used in other pipelines.
 // The logger and abort handler are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
 	return NewStep(name, func() Result {
-		nested := &Pipeline{log: p.log, abortHandler: p.abortHandler, steps: p.steps}
-		return nested.runPipeline()
+		nested := &Pipeline{log: p.log, steps: p.steps}
+		return nested.Run()
 	})
 }
 
@@ -90,24 +94,18 @@ func (r Result) IsFailed() bool {
 // Steps are executed sequentially as they were added to the Pipeline.
 // If a Step returns a Result with a non-nil error, the Pipeline is aborted its Result contains the affected step's error.
 func (p *Pipeline) Run() Result {
-	result := p.runPipeline()
-	return result
-}
-
-func (p *Pipeline) runPipeline() Result {
 	for _, step := range p.steps {
 		p.log.Log("executing step", step.Name)
 
-		if r := step.F(); r.Abort || r.Err != nil {
-			if p.abortHandler != nil {
-				p.abortHandler(r)
+		r := step.F()
+		if step.H != nil {
+			if handlerErr := step.H(r); handlerErr != nil {
+				return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, handlerErr)}
 			}
-			if r.Err == nil {
-				p.log.Log("aborting pipeline by step", step.Name)
-				return Result{Abort: r.Abort}
+		} else {
+			if r.Err != nil {
+				return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, r.Err)}
 			}
-
-			return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, r.Err), Abort: r.Abort}
 		}
 	}
 	return Result{}
@@ -121,8 +119,8 @@ func NewStep(name string, action ActionFunc) Step {
 	}
 }
 
-func Abort() ActionFunc {
-	return func() Result {
-		return Result{Abort: true}
-	}
+// WithResultHandler sets the ResultHandler of this specific step and returns the step itself.
+func (s Step) WithResultHandler(handler ResultHandler) Step {
+	s.H = handler
+	return s
 }
