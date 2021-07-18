@@ -16,12 +16,17 @@ func main() {
 	p.WithSteps(
 		predicate.ToStep("clone repository", CloneGitRepository(), predicate.Not(DirExists("my-repo"))),
 		pipeline.NewStep("checkout branch", CheckoutBranch()),
-		pipeline.NewStep("pull", Pull()),
+		pipeline.NewStep("pull", Pull()).WithResultHandler(logSuccess),
 	)
 	result := p.Run()
 	if !result.IsSuccessful() {
 		log.Fatal(result.Err)
 	}
+}
+
+func logSuccess(result pipeline.Result) error {
+	log.Println("handler called")
+	return result.Err
 }
 
 func CloneGitRepository() pipeline.ActionFunc {
