@@ -1,17 +1,18 @@
 package pipeline
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPipeline_runPipeline(t *testing.T) {
 	callCount := 0
 	tests := map[string]struct {
 		givenSteps        []Step
-		givenAbortHandler Handler
-		expectedResult    Result
+		expectErrorString string
 		expectedCalls     int
 	}{
 		"GivenSingleStep_WhenRunning_ThenCallStep": {
@@ -21,35 +22,50 @@ func TestPipeline_runPipeline(t *testing.T) {
 					return Result{}
 				}),
 			},
-			expectedCalls:  1,
-			expectedResult: Result{},
+			expectedCalls: 1,
 		},
-		"GivenStepThatAborts_WhenRunning_ThenAbortPipeline": {
+		"GivenSingleStepWithoutHandler_WhenRunningWithError_ThenReturnError": {
 			givenSteps: []Step{
-				NewStep("abort", func() Result {
-					return Result{Abort: true}
-				}),
 				NewStep("test-step", func() Result {
+					callCount += 1
+					return Result{Err: errors.New("step failed")}
+				}),
+			},
+			expectedCalls: 1,
+			expectErrorString: "step failed",
+		},
+		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
+			givenSteps: []Step{
+				NewStep("test-step", func() Result {
+					callCount += 1
+					return Result{}
+				}).WithResultHandler(func(result Result) error {
+					callCount += 1
+					return errors.New("handler")
+				}),
+				NewStep("don't run this step", func() Result {
 					callCount += 1
 					return Result{}
 				}),
 			},
-			expectedCalls:  0,
-			expectedResult: Result{Abort: true},
+			expectedCalls:     2,
+			expectErrorString: "handler",
 		},
-		"GivenAbortHandler_WhenAborted_ThenRunHandler": {
+		"GivenSingleStepWithHandler_WhenNullifyingError_ThenContinuePipeline": {
 			givenSteps: []Step{
 				NewStep("test-step", func() Result {
 					callCount += 1
-					return Result{Abort: true}
+					return Result{Err: errors.New("failed step")}
+				}).WithResultHandler(func(result Result) error {
+					callCount += 1
+					return nil
+				}),
+				NewStep("continue", func() Result {
+					callCount += 1
+					return Result{}
 				}),
 			},
-			givenAbortHandler: func(result Result) {
-				callCount += 1
-				assert.True(t, result.Abort)
-			},
-			expectedCalls:  2,
-			expectedResult: Result{Abort: true},
+			expectedCalls: 3,
 		},
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell": {
 			givenSteps: []Step{
@@ -63,20 +79,23 @@ func TestPipeline_runPipeline(t *testing.T) {
 						return Result{}
 					})).AsNestedStep("nested-pipeline"),
 			},
-			expectedCalls:  2,
-			expectedResult: Result{},
+			expectedCalls: 2,
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			callCount = 0
 			p := &Pipeline{
-				log:          nullLogger{},
-				steps:        tt.givenSteps,
-				abortHandler: tt.givenAbortHandler,
+				log:   nullLogger{},
+				steps: tt.givenSteps,
 			}
 			actualResult := p.Run()
-			assert.Equal(t, tt.expectedResult, actualResult)
+			if tt.expectErrorString != "" {
+				require.Error(t, actualResult.Err)
+				assert.Contains(t, actualResult.Err.Error(), tt.expectErrorString)
+			} else {
+				assert.NoError(t, actualResult.Err)
+			}
 			assert.Equal(t, tt.expectedCalls, callCount)
 		})
 	}
