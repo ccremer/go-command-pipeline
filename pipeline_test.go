@@ -31,7 +31,7 @@ func TestPipeline_runPipeline(t *testing.T) {
 					return Result{Err: errors.New("step failed")}
 				}),
 			},
-			expectedCalls: 1,
+			expectedCalls:     1,
 			expectErrorString: "step failed",
 		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
@@ -74,7 +74,7 @@ func TestPipeline_runPipeline(t *testing.T) {
 					return Result{}
 				}),
 				NewPipeline().
-					WithSteps(NewStep("nested-step", func() Result {
+					AddStep(NewStep("nested-step", func() Result {
 						callCount += 1
 						return Result{}
 					})).AsNestedStep("nested-pipeline"),
@@ -86,15 +86,17 @@ func TestPipeline_runPipeline(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			callCount = 0
 			p := &Pipeline{
-				log:   nullLogger{},
-				steps: tt.givenSteps,
+				log: nullLogger{},
 			}
+			p.WithSteps(tt.givenSteps...)
 			actualResult := p.Run()
 			if tt.expectErrorString != "" {
 				require.Error(t, actualResult.Err)
+				assert.True(t, actualResult.IsFailed())
 				assert.Contains(t, actualResult.Err.Error(), tt.expectErrorString)
 			} else {
 				assert.NoError(t, actualResult.Err)
+				assert.True(t, actualResult.IsSuccessful())
 			}
 			assert.Equal(t, tt.expectedCalls, callCount)
 		})
