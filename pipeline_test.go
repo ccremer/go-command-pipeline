@@ -81,6 +81,17 @@ func TestPipeline_runPipeline(t *testing.T) {
 			},
 			expectedCalls: 2,
 		},
+		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell_Variant2": {
+			givenSteps: []Step{
+				NewPipeline().
+					WithNestedSteps("nested-pipeline",
+						NewStep("nested-step", func() Result {
+							callCount += 1
+							return Result{}
+						})),
+			},
+			expectedCalls: 1,
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
