@@ -71,6 +71,14 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 	return p
 }
 
+// WithNestedSteps is similar to AsNestedStep but it accepts the steps given directly as parameters.
+func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
+	return NewStep(name, func() Result {
+		nested := &Pipeline{log: p.log, steps: steps}
+		return nested.Run()
+	})
+}
+
 // AsNestedStep converts the Pipeline instance into a Step that can be used in other pipelines.
 // The logger and abort handler are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
