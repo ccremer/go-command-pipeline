@@ -49,13 +49,13 @@ func TestNewFanOutStep(t *testing.T) {
 			step := NewFanOutStep("fanout", func(funcs chan *pipeline.Pipeline) {
 				defer close(funcs)
 				for i := 0; i < tt.jobs; i++ {
-					funcs <- pipeline.NewPipeline().WithSteps(pipeline.NewStep("step", func() pipeline.Result {
+					funcs <- pipeline.NewPipeline().WithSteps(pipeline.NewStep("step", func(_ pipeline.Context) pipeline.Result {
 						atomic.AddUint64(&counts, 1)
 						return pipeline.Result{Err: tt.returnErr}
 					}))
 				}
 			}, handler)
-			result := step.F()
+			result := step.F(nil)
 			assert.NoError(t, result.Err)
 			assert.Equal(t, uint64(tt.expectedCounts), counts)
 		})
@@ -69,7 +69,7 @@ func ExampleNewFanOutStep() {
 		// create some pipelines
 		for i := 0; i < 3; i++ {
 			n := i
-			pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func() pipeline.Result {
+			pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func(_ pipeline.Context) pipeline.Result {
 				time.Sleep(time.Duration(n * 10000000)) // fake some load
 				fmt.Println(fmt.Sprintf("I am worker %d", n))
 				return pipeline.Result{}

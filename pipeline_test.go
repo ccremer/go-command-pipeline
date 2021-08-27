@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPipeline_runPipeline(t *testing.T) {
+func TestPipeline_Run(t *testing.T) {
 	callCount := 0
 	tests := map[string]struct {
 		givenSteps        []Step
@@ -17,7 +17,7 @@ func TestPipeline_runPipeline(t *testing.T) {
 	}{
 		"GivenSingleStep_WhenRunning_ThenCallStep": {
 			givenSteps: []Step{
-				NewStep("test-step", func() Result {
+				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{}
 				}),
@@ -26,7 +26,7 @@ func TestPipeline_runPipeline(t *testing.T) {
 		},
 		"GivenSingleStepWithoutHandler_WhenRunningWithError_ThenReturnError": {
 			givenSteps: []Step{
-				NewStep("test-step", func() Result {
+				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{Err: errors.New("step failed")}
 				}),
@@ -36,14 +36,14 @@ func TestPipeline_runPipeline(t *testing.T) {
 		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
 			givenSteps: []Step{
-				NewStep("test-step", func() Result {
+				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{}
 				}).WithResultHandler(func(result Result) error {
 					callCount += 1
 					return errors.New("handler")
 				}),
-				NewStep("don't run this step", func() Result {
+				NewStep("don't run this step", func(_ Context) Result {
 					callCount += 1
 					return Result{}
 				}),
@@ -53,14 +53,14 @@ func TestPipeline_runPipeline(t *testing.T) {
 		},
 		"GivenSingleStepWithHandler_WhenNullifyingError_ThenContinuePipeline": {
 			givenSteps: []Step{
-				NewStep("test-step", func() Result {
+				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{Err: errors.New("failed step")}
 				}).WithResultHandler(func(result Result) error {
 					callCount += 1
 					return nil
 				}),
-				NewStep("continue", func() Result {
+				NewStep("continue", func(_ Context) Result {
 					callCount += 1
 					return Result{}
 				}),
@@ -69,12 +69,12 @@ func TestPipeline_runPipeline(t *testing.T) {
 		},
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell": {
 			givenSteps: []Step{
-				NewStep("test-step", func() Result {
+				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{}
 				}),
 				NewPipeline().
-					AddStep(NewStep("nested-step", func() Result {
+					AddStep(NewStep("nested-step", func(_ Context) Result {
 						callCount += 1
 						return Result{}
 					})).AsNestedStep("nested-pipeline"),
@@ -85,7 +85,7 @@ func TestPipeline_runPipeline(t *testing.T) {
 			givenSteps: []Step{
 				NewPipeline().
 					WithNestedSteps("nested-pipeline",
-						NewStep("nested-step", func() Result {
+						NewStep("nested-step", func(_ Context) Result {
 							callCount += 1
 							return Result{}
 						})),
@@ -112,4 +112,26 @@ func TestPipeline_runPipeline(t *testing.T) {
 			assert.Equal(t, tt.expectedCalls, callCount)
 		})
 	}
+}
+
+func TestPipeline_RunWithContext(t *testing.T) {
+	ctx := &DefaultContext{values: map[interface{}]interface{}{}}
+	p := NewPipelineWithContext(ctx)
+	p.AddStep(NewStep("context", func(ctx Context) Result {
+		ctx.SetValue("key", "value")
+		return Result{}
+	}))
+	result := p.Run()
+	require.NoError(t, result.Err)
+	assert.Equal(t, "value", ctx.StringValue("key", "default"))
+}
+
+func TestNewStepFromFunc(t *testing.T) {
+	called := false
+	step := NewStepFromFunc("name", func(ctx Context) error {
+		called = true
+		return nil
+	})
+	_ = step.F(nil)
+	assert.True(t, called)
 }
