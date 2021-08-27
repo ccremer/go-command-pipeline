@@ -2,7 +2,6 @@
 
 ![Go version](https://img.shields.io/github/go-mod/go-version/ccremer/go-command-pipeline)
 [![Version](https://img.shields.io/github/v/release/ccremer/go-command-pipeline)][releases]
-[![GitHub downloads](https://img.shields.io/github/downloads/ccremer/go-command-pipeline/total)][releases]
 [![Go Report Card](https://goreportcard.com/badge/github.com/ccremer/go-command-pipeline)][goreport]
 [![Codecov](https://img.shields.io/codecov/c/github/ccremer/go-command-pipeline?token=XGOC4XUMJ5)][codecov]
 
