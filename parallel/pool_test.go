@@ -37,7 +37,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 			}
 			step := NewWorkerPoolStep("pool", 1, func(pipelines chan *pipeline.Pipeline) {
 				defer close(pipelines)
-				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func() pipeline.Result {
+				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ pipeline.Context) pipeline.Result {
 					atomic.AddUint64(&counts, 1)
 					return pipeline.Result{Err: tt.expectedError}
 				}))
@@ -45,7 +45,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				assert.Error(t, results[0].Err)
 				return pipeline.Result{Err: results[0].Err}
 			})
-			result := step.F()
+			result := step.F(nil)
 			assert.Error(t, result.Err)
 		})
 	}
@@ -58,7 +58,7 @@ func ExampleNewWorkerPoolStep() {
 		// create some pipelines
 		for i := 0; i < 3; i++ {
 			n := i
-			pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func() pipeline.Result {
+			pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func(_ pipeline.Context) pipeline.Result {
 				time.Sleep(time.Duration(n * 100000000)) // fake some load
 				fmt.Println(fmt.Sprintf("This is job item %d", n))
 				return pipeline.Result{}

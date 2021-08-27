@@ -6,18 +6,19 @@ import (
 
 type (
 	// Predicate is a function that expects 'true' if a pipeline.ActionFunc should run.
-	// Is is evaluated lazily resp. only when needed.
+	// It is evaluated lazily resp. only when needed.
 	Predicate func(step pipeline.Step) bool
 )
 
 // ToStep wraps the given action func in its own step.
 // When the step's function is called, the given Predicate will evaluate whether the action should actually run.
 // It returns the action's pipeline.Result, otherwise an empty (successful) pipeline.Result struct.
+// The pipeline.Context from the pipeline is passed through the given action.
 func ToStep(name string, action pipeline.ActionFunc, predicate Predicate) pipeline.Step {
 	step := pipeline.Step{Name: name}
-	step.F = func() pipeline.Result {
+	step.F = func(ctx pipeline.Context) pipeline.Result {
 		if predicate(step) {
-			return action()
+			return action(ctx)
 		}
 		return pipeline.Result{}
 	}
@@ -27,9 +28,10 @@ func ToStep(name string, action pipeline.ActionFunc, predicate Predicate) pipeli
 // ToNestedStep wraps the given pipeline in its own step.
 // When the step's function is called, the given Predicate will evaluate whether the nested pipeline.Pipeline should actually run.
 // It returns the pipeline's pipeline.Result, otherwise an empty (successful) pipeline.Result struct.
+// The given pipeline has to define its own pipeline.Context, it's not passed "down".
 func ToNestedStep(name string, p *pipeline.Pipeline, predicate Predicate) pipeline.Step {
 	step := pipeline.Step{Name: name}
-	step.F = func() pipeline.Result {
+	step.F = func(_ pipeline.Context) pipeline.Result {
 		if predicate(step) {
 			return p.Run()
 		}
@@ -39,11 +41,12 @@ func ToNestedStep(name string, p *pipeline.Pipeline, predicate Predicate) pipeli
 }
 
 // WrapIn returns a new step that wraps the given step and executes its action only if the given Predicate evaluates true.
+// The pipeline.Context from the pipeline is passed through the given action.
 func WrapIn(originalStep pipeline.Step, predicate Predicate) pipeline.Step {
 	wrappedStep := pipeline.Step{Name: originalStep.Name}
-	wrappedStep.F = func() pipeline.Result {
+	wrappedStep.F = func(ctx pipeline.Context) pipeline.Result {
 		if predicate(wrappedStep) {
-			return originalStep.F()
+			return originalStep.F(ctx)
 		}
 		return pipeline.Result{}
 	}

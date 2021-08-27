@@ -58,11 +58,11 @@ func Test_Predicates(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := ToStep("name", func() pipeline.Result {
+			step := ToStep("name", func(_ pipeline.Context) pipeline.Result {
 				counter += 1
 				return pipeline.Result{}
 			}, tt.givenPredicate)
-			result := step.F()
+			result := step.F(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
 			assert.NoError(t, result.Err)
 		})
@@ -88,12 +88,12 @@ func TestToNestedStep(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			p := pipeline.NewPipeline().AddStep(pipeline.NewStep("nested step", func() pipeline.Result {
+			p := pipeline.NewPipeline().AddStep(pipeline.NewStep("nested step", func(_ pipeline.Context) pipeline.Result {
 				counter++
 				return pipeline.Result{}
 			}))
 			step := ToNestedStep("super step", p, tt.givenPredicate)
-			_ = step.F()
+			_ = step.F(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
 		})
 	}
@@ -118,12 +118,12 @@ func TestWrapIn(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := pipeline.NewStep("step", func() pipeline.Result {
+			step := pipeline.NewStep("step", func(_ pipeline.Context) pipeline.Result {
 				counter++
 				return pipeline.Result{}
 			})
 			wrapped := WrapIn(step, tt.givenPredicate)
-			result := wrapped.F()
+			result := wrapped.F(nil)
 			require.NoError(t, result.Err)
 			assert.Equal(t, tt.expectedCalls, counter)
 			assert.Equal(t, step.Name, wrapped.Name)

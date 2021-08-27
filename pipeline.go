@@ -7,8 +7,9 @@ import (
 type (
 	// Pipeline holds and runs intermediate actions, called "steps".
 	Pipeline struct {
-		log   Logger
-		steps []Step
+		log     Logger
+		steps   []Step
+		context Context
 	}
 	// Result is the object that is returned after each step and after running a pipeline.
 	Result struct {
@@ -27,7 +28,7 @@ type (
 		// This is required.
 		F ActionFunc
 		// H is the ResultHandler assigned to a pipeline Step.
-		// This is optional and it will be called in any case if it is set after F completed.
+		// This is optional, and it will be called in any case if it is set after F completed.
 		// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
 		// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
 		// This function is called before the next step's F is invoked.
@@ -40,7 +41,7 @@ type (
 		Log(message, name string)
 	}
 	// ActionFunc is the func that contains your business logic.
-	ActionFunc func() Result
+	ActionFunc func(ctx Context) Result
 	// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
 	ResultHandler func(result Result) error
 
@@ -49,14 +50,19 @@ type (
 
 func (n nullLogger) Log(_, _ string) {}
 
-// NewPipeline returns a new Pipeline instance that doesn't log anything.
+// NewPipeline returns a new quiet Pipeline instance with DefaultContext.
 func NewPipeline() *Pipeline {
 	return NewPipelineWithLogger(nullLogger{})
 }
 
-// NewPipelineWithLogger returns a new Pipeline instance with the given logger that shouldn't be nil.
+// NewPipelineWithContext returns a new Pipeline instance with the given context.
+func NewPipelineWithContext(ctx Context) *Pipeline {
+	return &Pipeline{context: ctx, log: nullLogger{}}
+}
+
+// NewPipelineWithLogger returns a new Pipeline instance with the given logger and DefaultContext.
 func NewPipelineWithLogger(logger Logger) *Pipeline {
-	return &Pipeline{log: logger}
+	return &Pipeline{log: logger, context: &DefaultContext{values: map[interface{}]interface{}{}}}
 }
 
 // AddStep appends the given step to the Pipeline at the end and returns itself.
@@ -71,10 +77,10 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 	return p
 }
 
-// WithNestedSteps is similar to AsNestedStep but it accepts the steps given directly as parameters.
+// WithNestedSteps is similar to AsNestedStep, but it accepts the steps given directly as parameters.
 func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
-	return NewStep(name, func() Result {
-		nested := &Pipeline{log: p.log, steps: steps}
+	return NewStep(name, func(ctx Context) Result {
+		nested := &Pipeline{log: p.log, steps: steps, context: ctx}
 		return nested.Run()
 	})
 }
@@ -82,8 +88,8 @@ func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
 // AsNestedStep converts the Pipeline instance into a Step that can be used in other pipelines.
 // The logger and abort handler are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
-	return NewStep(name, func() Result {
-		nested := &Pipeline{log: p.log, steps: p.steps}
+	return NewStep(name, func(ctx Context) Result {
+		nested := &Pipeline{log: p.log, steps: p.steps, context: ctx}
 		return nested.Run()
 	})
 }
@@ -98,6 +104,12 @@ func (r Result) IsFailed() bool {
 	return r.Err != nil
 }
 
+// WithContext returns itself while setting the context for the pipeline steps.
+func (p *Pipeline) WithContext(ctx Context) *Pipeline {
+	p.context = ctx
+	return p
+}
+
 // Run executes the pipeline and returns the result.
 // Steps are executed sequentially as they were added to the Pipeline.
 // If a Step returns a Result with a non-nil error, the Pipeline is aborted its Result contains the affected step's error.
@@ -105,7 +117,7 @@ func (p *Pipeline) Run() Result {
 	for _, step := range p.steps {
 		p.log.Log("executing step", step.Name)
 
-		r := step.F()
+		r := step.F(p.context)
 		if step.H != nil {
 			if handlerErr := step.H(r); handlerErr != nil {
 				return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, handlerErr)}
@@ -125,6 +137,14 @@ func NewStep(name string, action ActionFunc) Step {
 		Name: name,
 		F:    action,
 	}
+}
+
+// NewStepFromFunc returns a new Step with given name using a function that expects an error.
+func NewStepFromFunc(name string, fn func(ctx Context) error) Step {
+	return NewStep(name, func(ctx Context) Result {
+		err := fn(ctx)
+		return Result{Err: err, Name: name}
+	})
 }
 
 // WithResultHandler sets the ResultHandler of this specific step and returns the step itself.
