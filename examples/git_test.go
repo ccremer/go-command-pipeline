@@ -1,17 +1,18 @@
 //+build examples
 
-package git
+package examples
 
 import (
 	"log"
 	"os"
 	"os/exec"
+	"testing"
 
 	pipeline "github.com/ccremer/go-command-pipeline"
 	"github.com/ccremer/go-command-pipeline/predicate"
 )
 
-func main() {
+func TestExample_Git(t *testing.T) {
 	p := pipeline.NewPipeline()
 	p.WithSteps(
 		predicate.ToStep("clone repository", CloneGitRepository(), predicate.Not(DirExists("my-repo"))),
@@ -20,7 +21,7 @@ func main() {
 	)
 	result := p.Run()
 	if !result.IsSuccessful() {
-		log.Fatal(result.Err)
+		t.Fatal(result.Err)
 	}
 }
 
@@ -30,38 +31,32 @@ func logSuccess(result pipeline.Result) error {
 }
 
 func CloneGitRepository() pipeline.ActionFunc {
-	return func() pipeline.Result {
+	return func(_ pipeline.Context) pipeline.Result {
 		err := execGitCommand("clone", "git@github.com/ccremer/go-command-pipeline")
-		if err != nil {
-			return pipeline.Result{Err: err}
-		}
-		return pipeline.Result{}
+		return pipeline.Result{Err: err}
 	}
 }
 
 func Pull() pipeline.ActionFunc {
-	return func() pipeline.Result {
+	return func(_ pipeline.Context) pipeline.Result {
 		err := execGitCommand("pull")
-		if err != nil {
-			return pipeline.Result{Err: err}
-		}
-		return pipeline.Result{}
+		return pipeline.Result{Err: err}
 	}
 }
 
 func CheckoutBranch() pipeline.ActionFunc {
-	return func() pipeline.Result {
+	return func(_ pipeline.Context) pipeline.Result {
 		err := execGitCommand("checkout", "master")
-		if err != nil {
-			return pipeline.Result{Err: err}
-		}
-		return pipeline.Result{}
+		return pipeline.Result{Err: err}
 	}
 }
 
 func execGitCommand(args ...string) error {
-	cmd := exec.Command("git", args...)
-	return cmd.Run()
+	// replace 'echo' with actual 'git' binary
+	cmd := exec.Command("echo", args...)
+	cmd.Stdout = os.Stdout
+	err := cmd.Run()
+	return err
 }
 
 func DirExists(path string) predicate.Predicate {
