@@ -8,10 +8,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type hook struct {
+	calls int
+}
+
+func (h *hook) Accept(step Step) {
+	h.calls += 1
+}
+
 func TestPipeline_Run(t *testing.T) {
 	callCount := 0
+	hook := &hook{}
 	tests := map[string]struct {
 		givenSteps        []Step
+		givenBeforeHook   Listener
 		expectErrorString string
 		expectedCalls     int
 	}{
@@ -23,6 +33,16 @@ func TestPipeline_Run(t *testing.T) {
 				}),
 			},
 			expectedCalls: 1,
+		},
+		"GivenSingleStep_WhenBeforeHookGiven_ThenCallBeforeHook": {
+			givenSteps: []Step{
+				NewStep("test-step", func(_ Context) Result {
+					callCount += hook.calls + 1
+					return Result{}
+				}),
+			},
+			givenBeforeHook: hook,
+			expectedCalls:   2,
 		},
 		"GivenSingleStepWithoutHandler_WhenRunningWithError_ThenReturnError": {
 			givenSteps: []Step{
@@ -96,10 +116,11 @@ func TestPipeline_Run(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			callCount = 0
-			p := &Pipeline{
-				log: nullLogger{},
-			}
+			p := &Pipeline{}
 			p.WithSteps(tt.givenSteps...)
+			if tt.givenBeforeHook != nil {
+				p.AddBeforeHook(tt.givenBeforeHook)
+			}
 			actualResult := p.Run()
 			if tt.expectErrorString != "" {
 				require.Error(t, actualResult.Err)
