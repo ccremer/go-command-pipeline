@@ -7,9 +7,9 @@ import (
 type (
 	// Pipeline holds and runs intermediate actions, called "steps".
 	Pipeline struct {
-		log     Logger
-		steps   []Step
-		context Context
+		steps       []Step
+		context     Context
+		beforeHooks []Listener
 	}
 	// Result is the object that is returned after each step and after running a pipeline.
 	Result struct {
@@ -36,36 +36,40 @@ type (
 	}
 	// Context contains arbitrary data relevant for the pipeline execution.
 	Context interface{}
-	// Logger is a simple interface that enables logging certain actions with your favourite logging framework.
-	Logger interface {
-		// Log is expected to write the given message to a logging framework or similar.
-		// The name contains the step's name.
-		Log(message, name string)
+	// Listener is a simple interface that listens to Pipeline events.
+	Listener interface {
+		// Accept takes the given Step.
+		Accept(step Step)
 	}
 	// ActionFunc is the func that contains your business logic.
 	// The context is a user-defined arbitrary data of type interface{} that gets provided in every Step, but nil if not set.
 	ActionFunc func(ctx Context) Result
 	// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
 	ResultHandler func(result Result) error
-
-	nullLogger struct{}
 )
-
-func (n nullLogger) Log(_, _ string) {}
 
 // NewPipeline returns a new quiet Pipeline instance with KeyValueContext.
 func NewPipeline() *Pipeline {
-	return NewPipelineWithLogger(nullLogger{})
+	return &Pipeline{}
 }
 
 // NewPipelineWithContext returns a new Pipeline instance with the given context.
 func NewPipelineWithContext(ctx Context) *Pipeline {
-	return &Pipeline{context: ctx, log: nullLogger{}}
+	return &Pipeline{context: ctx}
 }
 
-// NewPipelineWithLogger returns a new Pipeline instance with the given logger and KeyValueContext.
-func NewPipelineWithLogger(logger Logger) *Pipeline {
-	return &Pipeline{log: logger}
+// WithBeforeHooks takes a list of listeners.
+// Each Listener.Accept is called once in the given order just before the ActionFunc is invoked.
+// The listeners should return as fast as possible, as they are not intended to do actual business logic.
+func (p *Pipeline) WithBeforeHooks(listeners []Listener) *Pipeline {
+	p.beforeHooks = listeners
+	return p
+}
+
+// AddBeforeHook adds the given listener to the list of hooks.
+// See WithBeforeHooks.
+func (p *Pipeline) AddBeforeHook(listener Listener) *Pipeline {
+	return p.WithBeforeHooks(append(p.beforeHooks, listener))
 }
 
 // AddStep appends the given step to the Pipeline at the end and returns itself.
@@ -82,17 +86,17 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 
 // WithNestedSteps is similar to AsNestedStep, but it accepts the steps given directly as parameters.
 func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
-	return NewStep(name, func(ctx Context) Result {
-		nested := &Pipeline{log: p.log, steps: steps, context: ctx}
+	return NewStep(name, func(_ Context) Result {
+		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: steps, context: p.context}
 		return nested.Run()
 	})
 }
 
 // AsNestedStep converts the Pipeline instance into a Step that can be used in other pipelines.
-// The logger and abort handler are passed to the nested pipeline.
+// The properties are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
-	return NewStep(name, func(ctx Context) Result {
-		nested := &Pipeline{log: p.log, steps: p.steps, context: ctx}
+	return NewStep(name, func(_ Context) Result {
+		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: p.steps, context: p.context}
 		return nested.Run()
 	})
 }
@@ -118,7 +122,9 @@ func (p *Pipeline) WithContext(ctx Context) *Pipeline {
 // If a Step returns a Result with a non-nil error, the Pipeline is aborted its Result contains the affected step's error.
 func (p *Pipeline) Run() Result {
 	for _, step := range p.steps {
-		p.log.Log("executing step", step.Name)
+		for _, listener := range p.beforeHooks {
+			listener.Accept(step)
+		}
 
 		r := step.F(p.context)
 		if step.H != nil {
