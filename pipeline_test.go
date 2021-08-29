@@ -115,15 +115,25 @@ func TestPipeline_Run(t *testing.T) {
 }
 
 func TestPipeline_RunWithContext(t *testing.T) {
-	ctx := &DefaultContext{values: map[interface{}]interface{}{}}
-	p := NewPipelineWithContext(ctx)
-	p.AddStep(NewStep("context", func(ctx Context) Result {
-		ctx.SetValue("key", "value")
-		return Result{}
-	}))
-	result := p.Run()
-	require.NoError(t, result.Err)
-	assert.Equal(t, "value", ctx.StringValue("key", "default"))
+	t.Run("custom type", func(t *testing.T) {
+		context := "some type"
+		p := NewPipelineWithContext(context)
+		p.AddStep(NewStep("context", func(ctx Context) Result {
+			assert.Equal(t, context, ctx)
+			return Result{}
+		}))
+		result := p.Run()
+		require.NoError(t, result.Err)
+	})
+	t.Run("nil context", func(t *testing.T) {
+		p := NewPipeline().WithContext(nil)
+		p.AddStep(NewStep("context", func(ctx Context) Result {
+			assert.Nil(t, ctx)
+			return Result{}
+		}))
+		result := p.Run()
+		require.NoError(t, result.Err)
+	})
 }
 
 func TestNewStepFromFunc(t *testing.T) {

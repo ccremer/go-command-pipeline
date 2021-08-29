@@ -16,7 +16,9 @@ import (
 )
 
 func main() {
+    number := 0 // define arbitrary data to pass around in the steps.
 	p := pipeline.NewPipeline()
+	p.WithContext(&number)
 	p.WithSteps(
 		pipeline.NewStep("define random number", defineNumber),
 		pipeline.NewStepFromFunc("print number", printNumber),
@@ -28,14 +30,15 @@ func main() {
 }
 
 func defineNumber(ctx pipeline.Context) pipeline.Result {
-	ctx.SetValue("number", rand.Int())
+	ctx.(*int) = 10
 	return pipeline.Result{}
 }
 
 // Let's assume this is a business function that can fail.
 // You can enable "automatic" fail-on-first-error pipelines by having more small functions that return errors.
 func printNumber(ctx pipeline.Context) error {
-	_, err := fmt.Println(ctx.IntValue("number", 0))
+    number := ctx.(*int)
+	_, err := fmt.Println(*number)
 	return err
 }
 ```
@@ -66,16 +69,17 @@ We have tons of `if err != nil` that bloats the function with more error handlin
 It could be simplified to something like this:
 ```go
 func Persist(data Data) error {
-    p := pipeline.NewPipeline().WithSteps(
+    p := pipeline.NewPipeline().WithContext(data).WithSteps(
         pipeline.NewStep("prepareTransaction", prepareTransaction()),
-        pipeline.NewStep("executeQuery", executeQuery(data)),
+        pipeline.NewStep("executeQuery", executeQuery()),
         pipeline.NewStep("commitTransaction", commit()),
     )
     return p.Run().Err
 }
 
-func executeQuery(data Data) pipeline.ActionFunc {
-	return func(_ pipeline.Context) pipeline.Result {
+func executeQuery() pipeline.ActionFunc {
+	return func(ctx pipeline.Context) pipeline.Result {
+	    data := ctx.(Data)
         err := database.executeQuery("SOME QUERY", data)
         return pipeline.Result{Err: err}
 	}
