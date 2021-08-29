@@ -34,6 +34,8 @@ type (
 		// This function is called before the next step's F is invoked.
 		H ResultHandler
 	}
+	// Context contains arbitrary data relevant for the pipeline execution.
+	Context interface{}
 	// Logger is a simple interface that enables logging certain actions with your favourite logging framework.
 	Logger interface {
 		// Log is expected to write the given message to a logging framework or similar.
@@ -41,6 +43,7 @@ type (
 		Log(message, name string)
 	}
 	// ActionFunc is the func that contains your business logic.
+	// The context is a user-defined arbitrary data of type interface{} that gets provided in every Step, but nil if not set.
 	ActionFunc func(ctx Context) Result
 	// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
 	ResultHandler func(result Result) error
@@ -50,7 +53,7 @@ type (
 
 func (n nullLogger) Log(_, _ string) {}
 
-// NewPipeline returns a new quiet Pipeline instance with DefaultContext.
+// NewPipeline returns a new quiet Pipeline instance with KeyValueContext.
 func NewPipeline() *Pipeline {
 	return NewPipelineWithLogger(nullLogger{})
 }
@@ -60,9 +63,9 @@ func NewPipelineWithContext(ctx Context) *Pipeline {
 	return &Pipeline{context: ctx, log: nullLogger{}}
 }
 
-// NewPipelineWithLogger returns a new Pipeline instance with the given logger and DefaultContext.
+// NewPipelineWithLogger returns a new Pipeline instance with the given logger and KeyValueContext.
 func NewPipelineWithLogger(logger Logger) *Pipeline {
-	return &Pipeline{log: logger, context: &DefaultContext{values: map[interface{}]interface{}{}}}
+	return &Pipeline{log: logger}
 }
 
 // AddStep appends the given step to the Pipeline at the end and returns itself.

@@ -10,9 +10,14 @@ import (
 	pipeline "github.com/ccremer/go-command-pipeline"
 )
 
+type Data struct {
+	Number int
+}
+
 func TestExample_Context(t *testing.T) {
 	// Create pipeline with defaults
 	p := pipeline.NewPipeline()
+	p.WithContext(&Data{})
 	p.WithSteps(
 		pipeline.NewStep("define random number", defineNumber),
 		pipeline.NewStepFromFunc("print number", printNumber),
@@ -24,11 +29,11 @@ func TestExample_Context(t *testing.T) {
 }
 
 func defineNumber(ctx pipeline.Context) pipeline.Result {
-	ctx.SetValue("number", rand.Int())
+	ctx.(*Data).Number = rand.Int()
 	return pipeline.Result{}
 }
 
 func printNumber(ctx pipeline.Context) error {
-	_, err := fmt.Println(ctx.IntValue("number", 0))
+	_, err := fmt.Println(ctx.(*Data).Number)
 	return err
 }
