@@ -10,13 +10,14 @@ type (
 		steps       []Step
 		context     Context
 		beforeHooks []Listener
+		finalizer   ResultHandler
 	}
 	// Result is the object that is returned after each step and after running a pipeline.
 	Result struct {
 		// Err contains the step's returned error, nil otherwise.
 		Err error
 		// Name is an optional identifier for a result.
-		// ActionFunc may set this property before returning to help an ResultHandler with further processing.
+		// ActionFunc may set this property before returning to help a ResultHandler with further processing.
 		Name string
 	}
 	// Step is an intermediary action and part of a Pipeline.
@@ -101,19 +102,17 @@ func (p *Pipeline) AsNestedStep(name string) Step {
 	})
 }
 
-// IsSuccessful returns true if the contained error is nil.
-func (r Result) IsSuccessful() bool {
-	return r.Err == nil
-}
-
-// IsFailed returns true if the contained error is non-nil.
-func (r Result) IsFailed() bool {
-	return r.Err != nil
-}
-
 // WithContext returns itself while setting the context for the pipeline steps.
 func (p *Pipeline) WithContext(ctx Context) *Pipeline {
 	p.context = ctx
+	return p
+}
+
+// WithFinalizer returns itself while setting the finalizer for the pipeline.
+// The finalizer is a handler that gets called after the last step is in the pipeline is completed.
+// If a pipeline aborts early then it is also called.
+func (p *Pipeline) WithFinalizer(handler ResultHandler) *Pipeline {
+	p.finalizer = handler
 	return p
 }
 
@@ -121,6 +120,14 @@ func (p *Pipeline) WithContext(ctx Context) *Pipeline {
 // Steps are executed sequentially as they were added to the Pipeline.
 // If a Step returns a Result with a non-nil error, the Pipeline is aborted its Result contains the affected step's error.
 func (p *Pipeline) Run() Result {
+	result := p.doRun()
+	if p.finalizer != nil {
+		result.Err = p.finalizer(result)
+	}
+	return result
+}
+
+func (p *Pipeline) doRun() Result {
 	for _, step := range p.steps {
 		for _, listener := range p.beforeHooks {
 			listener.Accept(step)
@@ -138,26 +145,4 @@ func (p *Pipeline) Run() Result {
 		}
 	}
 	return Result{}
-}
-
-// NewStep returns a new Step with given name and action.
-func NewStep(name string, action ActionFunc) Step {
-	return Step{
-		Name: name,
-		F:    action,
-	}
-}
-
-// NewStepFromFunc returns a new Step with given name using a function that expects an error.
-func NewStepFromFunc(name string, fn func(ctx Context) error) Step {
-	return NewStep(name, func(ctx Context) Result {
-		err := fn(ctx)
-		return Result{Err: err, Name: name}
-	})
-}
-
-// WithResultHandler sets the ResultHandler of this specific step and returns the step itself.
-func (s Step) WithResultHandler(handler ResultHandler) Step {
-	s.H = handler
-	return s
 }

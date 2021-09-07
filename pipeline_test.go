@@ -22,6 +22,7 @@ func TestPipeline_Run(t *testing.T) {
 	tests := map[string]struct {
 		givenSteps        []Step
 		givenBeforeHook   Listener
+		givenFinalizer    ResultHandler
 		expectErrorString string
 		expectedCalls     int
 	}{
@@ -43,6 +44,13 @@ func TestPipeline_Run(t *testing.T) {
 			},
 			givenBeforeHook: hook,
 			expectedCalls:   2,
+		},
+		"GivenPipelineWithFinalizer_WhenRunning_ThenCallHandler": {
+			givenFinalizer: func(result Result) error {
+				callCount += 1
+				return nil
+			},
+			expectedCalls: 1,
 		},
 		"GivenSingleStepWithoutHandler_WhenRunningWithError_ThenReturnError": {
 			givenSteps: []Step{
@@ -118,6 +126,7 @@ func TestPipeline_Run(t *testing.T) {
 			callCount = 0
 			p := &Pipeline{}
 			p.WithSteps(tt.givenSteps...)
+			p.WithFinalizer(tt.givenFinalizer)
 			if tt.givenBeforeHook != nil {
 				p.AddBeforeHook(tt.givenBeforeHook)
 			}
