@@ -25,7 +25,7 @@ func TestExample_Git(t *testing.T) {
 	}
 }
 
-func logSuccess(result pipeline.Result) error {
+func logSuccess(ctx pipeline.Context, result pipeline.Result) error {
 	log.Println("handler called")
 	return result.Err
 }
@@ -60,7 +60,7 @@ func execGitCommand(args ...string) error {
 }
 
 func DirExists(path string) predicate.Predicate {
-	return func(step pipeline.Step) bool {
+	return func(ctx pipeline.Context, step pipeline.Step) bool {
 		if info, err := os.Stat(path); err != nil || !info.IsDir() {
 			return false
 		}

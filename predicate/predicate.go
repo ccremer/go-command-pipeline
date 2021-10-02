@@ -7,7 +7,7 @@ import (
 type (
 	// Predicate is a function that expects 'true' if a pipeline.ActionFunc should run.
 	// It is evaluated lazily resp. only when needed.
-	Predicate func(step pipeline.Step) bool
+	Predicate func(ctx pipeline.Context, step pipeline.Step) bool
 )
 
 // ToStep wraps the given action func in its own step.
@@ -17,7 +17,7 @@ type (
 func ToStep(name string, action pipeline.ActionFunc, predicate Predicate) pipeline.Step {
 	step := pipeline.Step{Name: name}
 	step.F = func(ctx pipeline.Context) pipeline.Result {
-		if predicate(step) {
+		if predicate(ctx, step) {
 			return action(ctx)
 		}
 		return pipeline.Result{}
@@ -31,8 +31,8 @@ func ToStep(name string, action pipeline.ActionFunc, predicate Predicate) pipeli
 // The given pipeline has to define its own pipeline.Context, it's not passed "down".
 func ToNestedStep(name string, p *pipeline.Pipeline, predicate Predicate) pipeline.Step {
 	step := pipeline.Step{Name: name}
-	step.F = func(_ pipeline.Context) pipeline.Result {
-		if predicate(step) {
+	step.F = func(ctx pipeline.Context) pipeline.Result {
+		if predicate(ctx, step) {
 			return p.Run()
 		}
 		return pipeline.Result{}
@@ -45,7 +45,7 @@ func ToNestedStep(name string, p *pipeline.Pipeline, predicate Predicate) pipeli
 func WrapIn(originalStep pipeline.Step, predicate Predicate) pipeline.Step {
 	wrappedStep := pipeline.Step{Name: originalStep.Name}
 	wrappedStep.F = func(ctx pipeline.Context) pipeline.Result {
-		if predicate(wrappedStep) {
+		if predicate(ctx, wrappedStep) {
 			return originalStep.F(ctx)
 		}
 		return pipeline.Result{}
@@ -55,30 +55,30 @@ func WrapIn(originalStep pipeline.Step, predicate Predicate) pipeline.Step {
 
 // Bool returns a Predicate that simply returns v when evaluated.
 func Bool(v bool) Predicate {
-	return func(step pipeline.Step) bool {
+	return func(_ pipeline.Context, step pipeline.Step) bool {
 		return v
 	}
 }
 
 // Not returns a Predicate that evaluates, but then negates the given Predicate.
 func Not(predicate Predicate) Predicate {
-	return func(step pipeline.Step) bool {
-		return !predicate(step)
+	return func(ctx pipeline.Context, step pipeline.Step) bool {
+		return !predicate(ctx, step)
 	}
 }
 
 // And returns a Predicate that does logical AND of the given predicates.
 // p2 is not evaluated if p1 evaluates already to false.
 func And(p1, p2 Predicate) Predicate {
-	return func(step pipeline.Step) bool {
-		return p1(step) && p2(step)
+	return func(ctx pipeline.Context, step pipeline.Step) bool {
+		return p1(ctx, step) && p2(ctx, step)
 	}
 }
 
 // Or returns a Predicate that does logical OR of the given predicates.
 // p2 is not evaluated if p1 evaluates already to true.
 func Or(p1, p2 Predicate) Predicate {
-	return func(step pipeline.Step) bool {
-		return p1(step) || p2(step)
+	return func(ctx pipeline.Context, step pipeline.Step) bool {
+		return p1(ctx, step) || p2(ctx, step)
 	}
 }

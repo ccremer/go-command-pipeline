@@ -43,10 +43,11 @@ type (
 		Accept(step Step)
 	}
 	// ActionFunc is the func that contains your business logic.
-	// The context is a user-defined arbitrary data of type interface{} that gets provided in every Step, but nil if not set.
+	// The context is a user-defined arbitrary data of type interface{} that gets provided in every Step, but may be nil if not set.
 	ActionFunc func(ctx Context) Result
 	// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
-	ResultHandler func(result Result) error
+	// Context may be nil.
+	ResultHandler func(ctx Context, result Result) error
 )
 
 // NewPipeline returns a new quiet Pipeline instance with KeyValueContext.
@@ -122,7 +123,7 @@ func (p *Pipeline) WithFinalizer(handler ResultHandler) *Pipeline {
 func (p *Pipeline) Run() Result {
 	result := p.doRun()
 	if p.finalizer != nil {
-		result.Err = p.finalizer(result)
+		result.Err = p.finalizer(p.context, result)
 	}
 	return result
 }
@@ -135,7 +136,7 @@ func (p *Pipeline) doRun() Result {
 
 		r := step.F(p.context)
 		if step.H != nil {
-			if handlerErr := step.H(r); handlerErr != nil {
+			if handlerErr := step.H(p.context, r); handlerErr != nil {
 				return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, handlerErr)}
 			}
 		} else {
