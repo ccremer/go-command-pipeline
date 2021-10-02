@@ -41,7 +41,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 					atomic.AddUint64(&counts, 1)
 					return pipeline.Result{Err: tt.expectedError}
 				}))
-			}, func(results map[uint64]pipeline.Result) pipeline.Result {
+			}, func(ctx pipeline.Context, results map[uint64]pipeline.Result) pipeline.Result {
 				assert.Error(t, results[0].Err)
 				return pipeline.Result{Err: results[0].Err}
 			})
@@ -64,7 +64,7 @@ func ExampleNewWorkerPoolStep() {
 				return pipeline.Result{}
 			}))
 		}
-	}, func(results map[uint64]pipeline.Result) pipeline.Result {
+	}, func(ctx pipeline.Context, results map[uint64]pipeline.Result) pipeline.Result {
 		for jobIndex, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err))

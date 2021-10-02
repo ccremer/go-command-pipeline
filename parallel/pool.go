@@ -16,13 +16,14 @@ The step waits until all pipelines are finished.
  * If size is 1, the pipelines are effectively run in sequence.
  * If size is 0 or less, the function panics.
 The given pipelines have to define their own pipeline.Context, it's not passed "down" from parent pipeline.
+However, The pipeline.Context for the ResultHandler will be the one from parent pipeline.
 */
 func NewWorkerPoolStep(name string, size int, pipelineSupplier PipelineSupplier, handler ResultHandler) pipeline.Step {
 	if size < 1 {
 		panic("pool size cannot be lower than 1")
 	}
 	step := pipeline.Step{Name: name}
-	step.F = func(_ pipeline.Context) pipeline.Result {
+	step.F = func(ctx pipeline.Context) pipeline.Result {
 		pipelineChan := make(chan *pipeline.Pipeline, size)
 		m := sync.Map{}
 		var wg sync.WaitGroup
@@ -35,7 +36,7 @@ func NewWorkerPoolStep(name string, size int, pipelineSupplier PipelineSupplier,
 		}
 
 		wg.Wait()
-		return collectResults(handler, &m)
+		return collectResults(ctx, handler, &m)
 	}
 	return step
 }

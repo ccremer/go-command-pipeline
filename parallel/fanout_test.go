@@ -29,7 +29,7 @@ func TestNewFanOutStep(t *testing.T) {
 		"GivenPipelineWith_WhenRunningStep_ThenReturnSuccessButRunErrorHandler": {
 			jobs:      1,
 			returnErr: fmt.Errorf("should be called"),
-			givenResultHandler: func(_ map[uint64]pipeline.Result) pipeline.Result {
+			givenResultHandler: func(ctx pipeline.Context, _ map[uint64]pipeline.Result) pipeline.Result {
 				atomic.AddUint64(&counts, 1)
 				return pipeline.Result{}
 			},
@@ -41,7 +41,7 @@ func TestNewFanOutStep(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			handler := tt.givenResultHandler
 			if handler == nil {
-				handler = func(results map[uint64]pipeline.Result) pipeline.Result {
+				handler = func(ctx pipeline.Context, results map[uint64]pipeline.Result) pipeline.Result {
 					assert.NoError(t, results[0].Err)
 					return pipeline.Result{}
 				}
@@ -75,7 +75,7 @@ func ExampleNewFanOutStep() {
 				return pipeline.Result{}
 			}))
 		}
-	}, func(results map[uint64]pipeline.Result) pipeline.Result {
+	}, func(ctx pipeline.Context, results map[uint64]pipeline.Result) pipeline.Result {
 		for worker, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Worker %d failed: %v", worker, result.Err))

@@ -132,14 +132,14 @@ func TestWrapIn(t *testing.T) {
 }
 
 func truePredicate(counter *int) Predicate {
-	return func(step pipeline.Step) bool {
+	return func(_ pipeline.Context, step pipeline.Step) bool {
 		*counter++
 		return true
 	}
 }
 
 func falsePredicate(counter *int) Predicate {
-	return func(step pipeline.Step) bool {
+	return func(_ pipeline.Context, step pipeline.Step) bool {
 		*counter--
 		return false
 	}

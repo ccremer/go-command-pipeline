@@ -12,7 +12,7 @@ type hook struct {
 	calls int
 }
 
-func (h *hook) Accept(step Step) {
+func (h *hook) Accept(_ Step) {
 	h.calls += 1
 }
 
@@ -46,7 +46,7 @@ func TestPipeline_Run(t *testing.T) {
 			expectedCalls:   2,
 		},
 		"GivenPipelineWithFinalizer_WhenRunning_ThenCallHandler": {
-			givenFinalizer: func(result Result) error {
+			givenFinalizer: func(_ Context, result Result) error {
 				callCount += 1
 				return nil
 			},
@@ -67,7 +67,7 @@ func TestPipeline_Run(t *testing.T) {
 				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{}
-				}).WithResultHandler(func(result Result) error {
+				}).WithResultHandler(func(_ Context, result Result) error {
 					callCount += 1
 					return errors.New("handler")
 				}),
@@ -84,7 +84,7 @@ func TestPipeline_Run(t *testing.T) {
 				NewStep("test-step", func(_ Context) Result {
 					callCount += 1
 					return Result{Err: errors.New("failed step")}
-				}).WithResultHandler(func(result Result) error {
+				}).WithResultHandler(func(_ Context, result Result) error {
 					callCount += 1
 					return nil
 				}),
