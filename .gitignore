@@ -10,6 +10,8 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.cover
+/coverage
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -19,4 +21,6 @@
 /.vscode
 
 # Binaries and dists
+/go-command-pipeline
+/dist
 /.github/release-notes.md

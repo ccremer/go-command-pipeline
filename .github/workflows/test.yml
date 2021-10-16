@@ -1,3 +1,7 @@
+# This file is managed by greposync.
+# Do not modify manually.
+# Adjust variables in `.sync.yml`.
+# 
 name: Test
 
 on:
@@ -26,9 +30,10 @@ jobs:
             ${{ runner.os }}-go-
       - name: Run tests
         run: make test
-      - name: Upload coverage
-        uses: codecov/codecov-action@v2
+      - name: Upload code coverage report to Code Climate
+        uses: paambaati/codeclimate-action@v3.0.0
+        env:
+          CC_TEST_REPORTER_ID: 
         with:
-          files: ./cover.out
-      - name: Trigger goreport refresh
-        uses: creekorful/goreportcard-action@v1.0
+          coverageLocations: cover.out:gocov
+          prefix: github.com/${{ github.repository }}
