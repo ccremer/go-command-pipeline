@@ -1,0 +1,17 @@
+
+.github/workflows/build.yml:
+  delete: true
+
+.github/workflows/test.yml:
+  codeclimate:
+    enabled: false
+  codecov:
+    enabled: true
+  goreport:
+    enabled: true
+
+.github/workflows/release.yml:
+  releaseStrategy: plain
+
+codecov.yml:
+  delete: false
