@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-    number := 0 // define arbitrary data to pass around in the steps.
+	number := 0 // define arbitrary data to pass around in the steps.
 	p := pipeline.NewPipeline()
 	p.WithContext(&number)
 	p.WithSteps(
@@ -37,7 +37,7 @@ func defineNumber(ctx pipeline.Context) pipeline.Result {
 // Let's assume this is a business function that can fail.
 // You can enable "automatic" fail-on-first-error pipelines by having more small functions that return errors.
 func printNumber(ctx pipeline.Context) error {
-    number := ctx.(*int)
+	number := ctx.(*int)
 	_, err := fmt.Println(*number)
 	return err
 }
@@ -79,10 +79,10 @@ func Persist(data Data) error {
 
 func executeQuery() pipeline.ActionFunc {
 	return func(ctx pipeline.Context) pipeline.Result {
-	    data := ctx.(Data)
-        err := database.executeQuery("SOME QUERY", data)
-        return pipeline.Result{Err: err}
-	}
+		data := ctx.(Data)
+		err := database.executeQuery("SOME QUERY", data)
+		return pipeline.Result{Err: err}
+	)
 }
 ...
 ```
