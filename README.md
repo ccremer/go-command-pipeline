@@ -43,6 +43,8 @@ func printNumber(ctx pipeline.Context) error {
 }
 ```
 
+See more usage in the `examples` dir
+
 ## Who is it for
 
 This utility is interesting for you if you have many business functions that are executed sequentially, each with their own error handling.
