@@ -99,7 +99,7 @@ func TestToNestedStep(t *testing.T) {
 	}
 }
 
-func TestWrapIn(t *testing.T) {
+func TestIf(t *testing.T) {
 	counter := 0
 	tests := map[string]struct {
 		givenPredicate Predicate
@@ -122,7 +122,7 @@ func TestWrapIn(t *testing.T) {
 				counter++
 				return pipeline.Result{}
 			})
-			wrapped := WrapIn(step, tt.givenPredicate)
+			wrapped := If(tt.givenPredicate, step)
 			result := wrapped.F(nil)
 			require.NoError(t, result.Err)
 			assert.Equal(t, tt.expectedCalls, counter)
