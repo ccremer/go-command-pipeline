@@ -40,9 +40,9 @@ func ToNestedStep(name string, p *pipeline.Pipeline, predicate Predicate) pipeli
 	return step
 }
 
-// WrapIn returns a new step that wraps the given step and executes its action only if the given Predicate evaluates true.
+// If returns a new step that wraps the given step and executes its action only if the given Predicate evaluates true.
 // The pipeline.Context from the pipeline is passed through the given action.
-func WrapIn(originalStep pipeline.Step, predicate Predicate) pipeline.Step {
+func If(predicate Predicate, originalStep pipeline.Step) pipeline.Step {
 	wrappedStep := pipeline.Step{Name: originalStep.Name}
 	wrappedStep.F = func(ctx pipeline.Context) pipeline.Result {
 		if predicate(ctx, wrappedStep) {
