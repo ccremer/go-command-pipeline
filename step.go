@@ -21,3 +21,15 @@ func (s Step) WithResultHandler(handler ResultHandler) Step {
 	s.H = handler
 	return s
 }
+
+// WithErrorHandler wraps given errorHandler and sets the ResultHandler of this specific step and returns the step itself.
+// The difference to WithResultHandler is that errorHandler only gets called if Result.Err is non-nil.
+func (s Step) WithErrorHandler(errorHandler func(ctx Context, err error) error) Step {
+	s.H = func(ctx Context, result Result) error {
+		if result.IsFailed() {
+			return errorHandler(ctx, result.Err)
+		}
+		return nil
+	}
+	return s
+}
