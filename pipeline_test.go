@@ -62,6 +62,19 @@ func TestPipeline_Run(t *testing.T) {
 			expectedCalls:     1,
 			expectErrorString: "step failed",
 		},
+		"GivenStepWithErrAbort_WhenRunningWithErrAbort_ThenDoNotExecuteNextSteps": {
+			givenSteps: []Step{
+				NewStepFromFunc("test-step", func(_ Context) error {
+					callCount += 1
+					return ErrAbort
+				}),
+				NewStepFromFunc("step-should-not-execute", func(_ Context) error {
+					callCount += 1
+					return errors.New("should not execute")
+				}),
+			},
+			expectedCalls: 1,
+		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
 			givenSteps: []Step{
 				NewStep("test-step", func(_ Context) Result {

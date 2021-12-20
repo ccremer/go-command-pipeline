@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -119,7 +120,8 @@ func (p *Pipeline) WithFinalizer(handler ResultHandler) *Pipeline {
 
 // Run executes the pipeline and returns the result.
 // Steps are executed sequentially as they were added to the Pipeline.
-// If a Step returns a Result with a non-nil error, the Pipeline is aborted its Result contains the affected step's error.
+// If a Step returns a Result with a non-nil error, the Pipeline is aborted and its Result contains the affected step's error.
+// However, if Result.Err is wrapped in ErrAbort, then the pipeline is aborted, but the final Result.Err will be nil.
 func (p *Pipeline) Run() Result {
 	result := p.doRun()
 	if p.finalizer != nil {
@@ -134,15 +136,19 @@ func (p *Pipeline) doRun() Result {
 			listener.Accept(step)
 		}
 
-		r := step.F(p.context)
+		result := step.F(p.context)
+		var err error
 		if step.H != nil {
-			if handlerErr := step.H(p.context, r); handlerErr != nil {
-				return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, handlerErr)}
-			}
+			err = step.H(p.context, result)
 		} else {
-			if r.Err != nil {
-				return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, r.Err)}
+			err = result.Err
+		}
+		if err != nil {
+			if errors.Is(err, ErrAbort) {
+				// Abort pipeline without error
+				return Result{}
 			}
+			return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, err)}
 		}
 	}
 	return Result{}
