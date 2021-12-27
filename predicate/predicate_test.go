@@ -92,7 +92,7 @@ func TestToNestedStep(t *testing.T) {
 				counter++
 				return pipeline.Result{}
 			}))
-			step := ToNestedStep("super step", p, tt.givenPredicate)
+			step := ToNestedStep("super step", tt.givenPredicate, p)
 			_ = step.F(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
 		})
@@ -146,14 +146,14 @@ func TestBoolPtr(t *testing.T) {
 }
 
 func truePredicate(counter *int) Predicate {
-	return func(_ pipeline.Context, step pipeline.Step) bool {
+	return func(_ pipeline.Context) bool {
 		*counter++
 		return true
 	}
 }
 
 func falsePredicate(counter *int) Predicate {
-	return func(_ pipeline.Context, step pipeline.Step) bool {
+	return func(_ pipeline.Context) bool {
 		*counter--
 		return false
 	}
