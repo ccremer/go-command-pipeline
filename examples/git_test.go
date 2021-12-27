@@ -61,7 +61,7 @@ func execGitCommand(args ...string) error {
 }
 
 func DirExists(path string) predicate.Predicate {
-	return func(ctx pipeline.Context, step pipeline.Step) bool {
+	return func(_ pipeline.Context) bool {
 		if info, err := os.Stat(path); err != nil || !info.IsDir() {
 			return false
 		}
