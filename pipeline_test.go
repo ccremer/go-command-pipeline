@@ -42,7 +42,7 @@ func TestPipeline_Run(t *testing.T) {
 					return Result{}
 				}),
 			},
-			givenBeforeHook: hook,
+			givenBeforeHook: hook.Accept,
 			expectedCalls:   2,
 		},
 		"GivenPipelineWithFinalizer_WhenRunning_ThenCallHandler": {
