@@ -131,6 +131,20 @@ func TestIf(t *testing.T) {
 	}
 }
 
+func TestBoolPtr(t *testing.T) {
+	called := false
+	b := false
+	p := pipeline.NewPipeline().WithSteps(
+		If(BoolPtr(&b), pipeline.NewStepFromFunc("boolptr", func(_ pipeline.Context) error {
+			called = true
+			return nil
+		})),
+	)
+	b = true
+	_ = p.Run()
+	assert.True(t, called)
+}
+
 func truePredicate(counter *int) Predicate {
 	return func(_ pipeline.Context, step pipeline.Step) bool {
 		*counter++

@@ -54,9 +54,18 @@ func If(predicate Predicate, originalStep pipeline.Step) pipeline.Step {
 }
 
 // Bool returns a Predicate that simply returns v when evaluated.
+// Use BoolPtr() over Bool() if the value can change between setting up the pipeline and evaluating the predicate.
 func Bool(v bool) Predicate {
 	return func(_ pipeline.Context, step pipeline.Step) bool {
 		return v
+	}
+}
+
+// BoolPtr returns a Predicate that returns *v when evaluated.
+// Use BoolPtr() over Bool() if the value can change between setting up the pipeline and evaluating the predicate.
+func BoolPtr(v *bool) Predicate {
+	return func(_ pipeline.Context, _ pipeline.Step) bool {
+		return *v
 	}
 }
 
