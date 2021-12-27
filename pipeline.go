@@ -38,11 +38,8 @@ type (
 	}
 	// Context contains arbitrary data relevant for the pipeline execution.
 	Context interface{}
-	// Listener is a simple interface that listens to Pipeline events.
-	Listener interface {
-		// Accept takes the given Step.
-		Accept(step Step)
-	}
+	// Listener is a simple func that listens to Pipeline events.
+	Listener func(step Step)
 	// ActionFunc is the func that contains your business logic.
 	// The context is a user-defined arbitrary data of type interface{} that gets provided in every Step, but may be nil if not set.
 	ActionFunc func(ctx Context) Result
@@ -132,8 +129,8 @@ func (p *Pipeline) Run() Result {
 
 func (p *Pipeline) doRun() Result {
 	for _, step := range p.steps {
-		for _, listener := range p.beforeHooks {
-			listener.Accept(step)
+		for _, hooks := range p.beforeHooks {
+			hooks(step)
 		}
 
 		result := step.F(p.context)

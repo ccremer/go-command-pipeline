@@ -10,15 +10,11 @@ import (
 	pipeline "github.com/ccremer/go-command-pipeline"
 )
 
-type PipelineLogger struct{}
-
-func (l *PipelineLogger) Accept(step pipeline.Step) {
-	fmt.Println(fmt.Sprintf("Executing step: %s", step.Name))
-}
-
 func TestExample_Hooks(t *testing.T) {
 	p := pipeline.NewPipeline()
-	p.AddBeforeHook(&PipelineLogger{})
+	p.AddBeforeHook(func(step pipeline.Step) {
+		fmt.Println(fmt.Sprintf("Executing step: %s", step.Name))
+	})
 	p.WithSteps(
 		pipeline.NewStep("hook demo", AfterHookAction()),
 	)
