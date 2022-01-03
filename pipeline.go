@@ -17,10 +17,13 @@ type (
 	// Result is the object that is returned after each step and after running a pipeline.
 	Result struct {
 		// Err contains the step's returned error, nil otherwise.
+		// In an aborted pipeline with ErrAbort it will still be nil.
 		Err error
 		// Name is an optional identifier for a result.
 		// ActionFunc may set this property before returning to help a ResultHandler with further processing.
 		Name string
+
+		aborted bool
 	}
 	// Step is an intermediary action and part of a Pipeline.
 	Step struct {
@@ -144,7 +147,7 @@ func (p *Pipeline) doRun() Result {
 		if err != nil {
 			if errors.Is(err, ErrAbort) {
 				// Abort pipeline without error
-				return Result{}
+				return Result{aborted: true}
 			}
 			if p.disableErrorWrapping {
 				return Result{Err: err}

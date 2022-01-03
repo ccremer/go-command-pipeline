@@ -20,11 +20,12 @@ func TestPipeline_Run(t *testing.T) {
 	callCount := 0
 	hook := &hook{}
 	tests := map[string]struct {
-		givenSteps        []Step
-		givenBeforeHook   Listener
-		givenFinalizer    ResultHandler
-		expectErrorString string
-		expectedCalls     int
+		givenSteps           []Step
+		givenBeforeHook      Listener
+		givenFinalizer       ResultHandler
+		expectErrorString    string
+		expectedCalls        int
+		additionalAssertions func(t *testing.T, result Result)
 	}{
 		"GivenSingleStep_WhenRunning_ThenCallStep": {
 			givenSteps: []Step{
@@ -74,6 +75,9 @@ func TestPipeline_Run(t *testing.T) {
 				}),
 			},
 			expectedCalls: 1,
+			additionalAssertions: func(t *testing.T, result Result) {
+				assert.True(t, result.IsAborted())
+			},
 		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
 			givenSteps: []Step{
@@ -153,6 +157,9 @@ func TestPipeline_Run(t *testing.T) {
 				assert.True(t, actualResult.IsSuccessful())
 			}
 			assert.Equal(t, tt.expectedCalls, callCount)
+			if tt.additionalAssertions != nil {
+				tt.additionalAssertions(t, actualResult)
+			}
 		})
 	}
 }

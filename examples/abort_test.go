@@ -19,6 +19,7 @@ func TestExample_Abort(t *testing.T) {
 	)
 	result := p.Run()
 	assert.True(t, result.IsSuccessful())
+	assert.True(t, result.IsAborted())
 }
 
 func doNotExecute(_ pipeline.Context) error {
