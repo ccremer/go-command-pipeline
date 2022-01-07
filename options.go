@@ -1,5 +1,9 @@
 package pipeline
 
+type options struct {
+	disableErrorWrapping bool
+}
+
 // Option configures the given Pipeline with a behaviour-altering setting.
 type Option func(pipeline *Pipeline)
 
@@ -17,5 +21,5 @@ func (p *Pipeline) WithOptions(options ...Option) *Pipeline {
 // DisableErrorWrapping disables the wrapping of errors that are emitted from pipeline steps.
 // This effectively causes Result.Err to be exactly the error as returned from a step.
 var DisableErrorWrapping Option = func(pipeline *Pipeline) {
-	pipeline.disableErrorWrapping = true
+	pipeline.options.disableErrorWrapping = true
 }

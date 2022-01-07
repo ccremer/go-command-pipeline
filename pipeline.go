@@ -8,11 +8,11 @@ import (
 type (
 	// Pipeline holds and runs intermediate actions, called "steps".
 	Pipeline struct {
-		steps                []Step
-		context              Context
-		beforeHooks          []Listener
-		finalizer            ResultHandler
-		disableErrorWrapping bool
+		steps       []Step
+		context     Context
+		beforeHooks []Listener
+		finalizer   ResultHandler
+		options     options
 	}
 	// Result is the object that is returned after each step and after running a pipeline.
 	Result struct {
@@ -91,7 +91,7 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 // WithNestedSteps is similar to AsNestedStep, but it accepts the steps given directly as parameters.
 func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
 	return NewStep(name, func(_ Context) Result {
-		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: steps, context: p.context, disableErrorWrapping: p.disableErrorWrapping}
+		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: steps, context: p.context, options: p.options}
 		return nested.Run()
 	})
 }
@@ -100,7 +100,7 @@ func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
 // The properties are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
 	return NewStep(name, func(_ Context) Result {
-		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: p.steps, context: p.context}
+		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: p.steps, context: p.context, options: p.options}
 		return nested.Run()
 	})
 }
@@ -149,7 +149,7 @@ func (p *Pipeline) doRun() Result {
 				// Abort pipeline without error
 				return Result{aborted: true}
 			}
-			if p.disableErrorWrapping {
+			if p.options.disableErrorWrapping {
 				return Result{Err: err}
 			}
 			return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, err)}
