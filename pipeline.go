@@ -1,65 +1,59 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
 
-type (
-	// Pipeline holds and runs intermediate actions, called "steps".
-	Pipeline struct {
-		steps       []Step
-		context     Context
-		beforeHooks []Listener
-		finalizer   ResultHandler
-		options     options
-	}
-	// Result is the object that is returned after each step and after running a pipeline.
-	Result struct {
-		// Err contains the step's returned error, nil otherwise.
-		// In an aborted pipeline with ErrAbort it will still be nil.
-		Err error
-		// Name is an optional identifier for a result.
-		// ActionFunc may set this property before returning to help a ResultHandler with further processing.
-		Name string
-
-		aborted bool
-	}
-	// Step is an intermediary action and part of a Pipeline.
-	Step struct {
-		// Name describes the step's human-readable name.
-		// It has no other uses other than easily identifying a step for debugging or logging.
-		Name string
-		// F is the ActionFunc assigned to a pipeline Step.
-		// This is required.
-		F ActionFunc
-		// H is the ResultHandler assigned to a pipeline Step.
-		// This is optional, and it will be called in any case if it is set after F completed.
-		// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
-		// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
-		// This function is called before the next step's F is invoked.
-		H ResultHandler
-	}
-	// Context contains arbitrary data relevant for the pipeline execution.
-	Context interface{}
-	// Listener is a simple func that listens to Pipeline events.
-	Listener func(step Step)
-	// ActionFunc is the func that contains your business logic.
-	// The context is a user-defined arbitrary data of type interface{} that gets provided in every Step, but may be nil if not set.
-	ActionFunc func(ctx Context) Result
-	// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
-	// Context may be nil.
-	ResultHandler func(ctx Context, result Result) error
-)
-
-// NewPipeline returns a new quiet Pipeline instance with KeyValueContext.
-func NewPipeline() *Pipeline {
-	return &Pipeline{}
+// Pipeline holds and runs intermediate actions, called "steps".
+type Pipeline struct {
+	steps       []Step
+	beforeHooks []Listener
+	finalizer   ResultHandler
+	options     options
 }
 
-// NewPipelineWithContext returns a new Pipeline instance with the given context.
-func NewPipelineWithContext(ctx Context) *Pipeline {
-	return &Pipeline{context: ctx}
+// Result is the object that is returned after each step and after running a pipeline.
+type Result struct {
+	// Err contains the step's returned error, nil otherwise.
+	// In an aborted pipeline with ErrAbort it will still be nil.
+	Err error
+	// Name is an optional identifier for a result.
+	// ActionFunc may set this property before returning to help a ResultHandler with further processing.
+	Name string
+
+	aborted bool
+}
+
+// Step is an intermediary action and part of a Pipeline.
+type Step struct {
+	// Name describes the step's human-readable name.
+	// It has no other uses other than easily identifying a step for debugging or logging.
+	Name string
+	// F is the ActionFunc assigned to a pipeline Step.
+	// This is required.
+	F ActionFunc
+	// H is the ResultHandler assigned to a pipeline Step.
+	// This is optional, and it will be called in any case if it is set after F completed.
+	// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
+	// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
+	// This function is called before the next step's F is invoked.
+	H ResultHandler
+}
+
+// Listener is a simple func that listens to Pipeline events.
+type Listener func(step Step)
+
+// ActionFunc is the func that contains your business logic.
+type ActionFunc func(ctx context.Context) Result
+
+// ResultHandler is a func that gets called when a step's ActionFunc has finished with any Result.
+type ResultHandler func(ctx context.Context, result Result) error
+
+// NewPipeline returns a new Pipeline instance.
+func NewPipeline() *Pipeline {
+	return &Pipeline{}
 }
 
 // WithBeforeHooks takes a list of listeners.
@@ -82,7 +76,7 @@ func (p *Pipeline) AddStep(step Step) *Pipeline {
 	return p
 }
 
-// WithSteps appends the given arrway of steps to the Pipeline at the end and returns itself.
+// WithSteps appends the given array of steps to the Pipeline at the end and returns itself.
 func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 	p.steps = steps
 	return p
@@ -90,8 +84,8 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 
 // WithNestedSteps is similar to AsNestedStep, but it accepts the steps given directly as parameters.
 func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
-	return NewStep(name, func(_ Context) Result {
-		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: steps, context: p.context, options: p.options}
+	return NewStep(name, func(_ context.Context) Result {
+		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: steps, options: p.options}
 		return nested.Run()
 	})
 }
@@ -99,16 +93,10 @@ func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
 // AsNestedStep converts the Pipeline instance into a Step that can be used in other pipelines.
 // The properties are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
-	return NewStep(name, func(_ Context) Result {
-		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: p.steps, context: p.context, options: p.options}
+	return NewStep(name, func(_ context.Context) Result {
+		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: p.steps, options: p.options}
 		return nested.Run()
 	})
-}
-
-// WithContext returns itself while setting the context for the pipeline steps.
-func (p *Pipeline) WithContext(ctx Context) *Pipeline {
-	p.context = ctx
-	return p
 }
 
 // WithFinalizer returns itself while setting the finalizer for the pipeline.
@@ -119,28 +107,33 @@ func (p *Pipeline) WithFinalizer(handler ResultHandler) *Pipeline {
 	return p
 }
 
-// Run executes the pipeline and returns the result.
+// Run executes the pipeline with context.Background and returns the result.
 // Steps are executed sequentially as they were added to the Pipeline.
 // If a Step returns a Result with a non-nil error, the Pipeline is aborted and its Result contains the affected step's error.
 // However, if Result.Err is wrapped in ErrAbort, then the pipeline is aborted, but the final Result.Err will be nil.
 func (p *Pipeline) Run() Result {
-	result := p.doRun()
+	return p.RunWithContext(context.Background())
+}
+
+// RunWithContext is like Run but with a given context.Context.
+func (p *Pipeline) RunWithContext(ctx context.Context) Result {
+	result := p.doRun(ctx)
 	if p.finalizer != nil {
-		result.Err = p.finalizer(p.context, result)
+		result.Err = p.finalizer(ctx, result)
 	}
 	return result
 }
 
-func (p *Pipeline) doRun() Result {
+func (p *Pipeline) doRun(ctx context.Context) Result {
 	for _, step := range p.steps {
 		for _, hooks := range p.beforeHooks {
 			hooks(step)
 		}
 
-		result := step.F(p.context)
+		result := step.F(ctx)
 		var err error
 		if step.H != nil {
-			err = step.H(p.context, result)
+			err = step.H(ctx, result)
 		} else {
 			err = result.Err
 		}

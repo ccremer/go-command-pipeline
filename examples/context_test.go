@@ -4,6 +4,7 @@
 package examples
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -18,7 +19,7 @@ type Data struct {
 func TestExample_Context(t *testing.T) {
 	// Create pipeline with defaults
 	p := pipeline.NewPipeline()
-	p.WithContext(&Data{})
+	p.WithContext(context.WithValue(context.Background(), "data", &Data{}))
 	p.WithSteps(
 		pipeline.NewStep("define random number", defineNumber),
 		pipeline.NewStepFromFunc("print number", printNumber),
@@ -29,12 +30,12 @@ func TestExample_Context(t *testing.T) {
 	}
 }
 
-func defineNumber(ctx pipeline.Context) pipeline.Result {
-	ctx.(*Data).Number = rand.Int()
+func defineNumber(ctx context.Context) pipeline.Result {
+	ctx.Value("data").(*Data).Number = rand.Int()
 	return pipeline.Result{}
 }
 
-func printNumber(ctx pipeline.Context) error {
-	_, err := fmt.Println(ctx.(*Data).Number)
+func printNumber(ctx context.Context) error {
+	_, err := fmt.Println(ctx.Value("data").(*Data).Number)
 	return err
 }

@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"context"
 	"sync"
 
 	pipeline "github.com/ccremer/go-command-pipeline"
@@ -11,12 +12,12 @@ NewFanOutStep creates a pipeline step that runs nested pipelines in their own Go
 The function provided as PipelineSupplier is expected to close the given channel when no more pipelines should be executed, otherwise this step blocks forever.
 The step waits until all pipelines are finished.
 If the given ResultHandler is non-nil it will be called after all pipelines were run, otherwise the step is considered successful.
-The given pipelines have to define their own pipeline.Context, it's not passed "down" from parent pipeline.
-However, The pipeline.Context for the ResultHandler will be the one from parent pipeline.
+The given pipelines have to define their own context.Context, it's not passed "down" from parent pipeline.
+However, The context.Context for the ResultHandler will be the one from parent pipeline.
 */
 func NewFanOutStep(name string, pipelineSupplier PipelineSupplier, handler ResultHandler) pipeline.Step {
 	step := pipeline.Step{Name: name}
-	step.F = func(ctx pipeline.Context) pipeline.Result {
+	step.F = func(ctx context.Context) pipeline.Result {
 		pipelineChan := make(chan *pipeline.Pipeline)
 		m := sync.Map{}
 		var wg sync.WaitGroup

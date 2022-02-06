@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync/atomic"
@@ -37,11 +38,11 @@ func TestNewWorkerPoolStep(t *testing.T) {
 			}
 			step := NewWorkerPoolStep("pool", 1, func(pipelines chan *pipeline.Pipeline) {
 				defer close(pipelines)
-				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ pipeline.Context) pipeline.Result {
+				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
 					atomic.AddUint64(&counts, 1)
 					return pipeline.Result{Err: tt.expectedError}
 				}))
-			}, func(ctx pipeline.Context, results map[uint64]pipeline.Result) pipeline.Result {
+			}, func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
 				assert.Error(t, results[0].Err)
 				return pipeline.Result{Err: results[0].Err}
 			})
@@ -58,13 +59,13 @@ func ExampleNewWorkerPoolStep() {
 		// create some pipelines
 		for i := 0; i < 3; i++ {
 			n := i
-			pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func(_ pipeline.Context) pipeline.Result {
+			pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func(_ context.Context) pipeline.Result {
 				time.Sleep(time.Duration(n * 100000000)) // fake some load
 				fmt.Println(fmt.Sprintf("This is job item %d", n))
 				return pipeline.Result{}
 			}))
 		}
-	}, func(ctx pipeline.Context, results map[uint64]pipeline.Result) pipeline.Result {
+	}, func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
 		for jobIndex, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err))

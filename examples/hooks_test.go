@@ -4,6 +4,7 @@
 package examples
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -25,7 +26,7 @@ func TestExample_Hooks(t *testing.T) {
 }
 
 func AfterHookAction() pipeline.ActionFunc {
-	return func(ctx pipeline.Context) pipeline.Result {
+	return func(ctx context.Context) pipeline.Result {
 		fmt.Println("I am called in an action after the hooks")
 		return pipeline.Result{}
 	}
