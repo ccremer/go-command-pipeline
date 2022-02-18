@@ -14,18 +14,6 @@ type Pipeline struct {
 	options     options
 }
 
-// Result is the object that is returned after each step and after running a pipeline.
-type Result struct {
-	// Err contains the step's returned error, nil otherwise.
-	// In an aborted pipeline with ErrAbort it will still be nil.
-	Err error
-	// Name is an optional identifier for a result.
-	// ActionFunc may set this property before returning to help a ResultHandler with further processing.
-	Name string
-
-	aborted bool
-}
-
 // Step is an intermediary action and part of a Pipeline.
 type Step struct {
 	// Name describes the step's human-readable name.
@@ -84,24 +72,24 @@ func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 
 // WithNestedSteps is similar to AsNestedStep, but it accepts the steps given directly as parameters.
 func (p *Pipeline) WithNestedSteps(name string, steps ...Step) Step {
-	return NewStep(name, func(_ context.Context) Result {
+	return NewStep(name, func(ctx context.Context) Result {
 		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: steps, options: p.options}
-		return nested.Run()
+		return nested.RunWithContext(ctx)
 	})
 }
 
 // AsNestedStep converts the Pipeline instance into a Step that can be used in other pipelines.
 // The properties are passed to the nested pipeline.
 func (p *Pipeline) AsNestedStep(name string) Step {
-	return NewStep(name, func(_ context.Context) Result {
+	return NewStep(name, func(ctx context.Context) Result {
 		nested := &Pipeline{beforeHooks: p.beforeHooks, steps: p.steps, options: p.options}
-		return nested.Run()
+		return nested.RunWithContext(ctx)
 	})
 }
 
 // WithFinalizer returns itself while setting the finalizer for the pipeline.
 // The finalizer is a handler that gets called after the last step is in the pipeline is completed.
-// If a pipeline aborts early then it is also called.
+// If a pipeline aborts early or gets canceled then it is also called.
 func (p *Pipeline) WithFinalizer(handler ResultHandler) *Pipeline {
 	p.finalizer = handler
 	return p
@@ -116,6 +104,9 @@ func (p *Pipeline) Run() Result {
 }
 
 // RunWithContext is like Run but with a given context.Context.
+// Upon cancellation of the context, the pipeline does not terminate a currently running step, instead it skips the remaining steps in the execution order.
+// The context is passed to each Step.F and each Step may need to listen to the context cancellation event to truly cancel a long-running step.
+// If the pipeline gets canceled, Result.IsCanceled returns true and Result.Err contains the context's error.
 func (p *Pipeline) RunWithContext(ctx context.Context) Result {
 	result := p.doRun(ctx)
 	if p.finalizer != nil {
@@ -125,28 +116,45 @@ func (p *Pipeline) RunWithContext(ctx context.Context) Result {
 }
 
 func (p *Pipeline) doRun(ctx context.Context) Result {
+	name := ""
 	for _, step := range p.steps {
-		for _, hooks := range p.beforeHooks {
-			hooks(step)
-		}
+		name = step.Name
+		select {
+		case <-ctx.Done():
+			result := p.fail(ctx.Err(), step)
+			return result
+		default:
+			for _, hooks := range p.beforeHooks {
+				hooks(step)
+			}
 
-		result := step.F(ctx)
-		var err error
-		if step.H != nil {
-			err = step.H(ctx, result)
-		} else {
-			err = result.Err
-		}
-		if err != nil {
-			if errors.Is(err, ErrAbort) {
-				// Abort pipeline without error
-				return Result{aborted: true}
+			result := step.F(ctx)
+			var err error
+			if step.H != nil {
+				result.name = step.Name
+				err = step.H(ctx, result)
+			} else {
+				err = result.Err
 			}
-			if p.options.disableErrorWrapping {
-				return Result{Err: err}
+			if err != nil {
+				if errors.Is(err, ErrAbort) {
+					// Abort pipeline without error
+					return Result{aborted: true, name: step.Name}
+				}
+				return p.fail(err, step)
 			}
-			return Result{Err: fmt.Errorf("step '%s' failed: %w", step.Name, err)}
 		}
 	}
-	return Result{}
+	return Result{name: name}
+}
+
+func (p *Pipeline) fail(err error, step Step) Result {
+	result := Result{name: step.Name}
+	if p.options.disableErrorWrapping {
+		result.Err = err
+	} else {
+		result.Err = fmt.Errorf("step %q failed: %w", step.Name, err)
+	}
+	result.canceled = errors.Is(err, ErrCanceled) || errors.Is(err, context.DeadlineExceeded)
+	return result
 }

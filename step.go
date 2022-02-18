@@ -14,7 +14,7 @@ func NewStep(name string, action ActionFunc) Step {
 func NewStepFromFunc(name string, fn func(ctx context.Context) error) Step {
 	return NewStep(name, func(ctx context.Context) Result {
 		err := fn(ctx)
-		return Result{Err: err, Name: name}
+		return Result{Err: err, name: name}
 	})
 }
 

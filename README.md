@@ -71,17 +71,17 @@ We have tons of `if err != nil` that bloats the function with more error handlin
 It could be simplified to something like this:
 ```go
 func Persist(data Data) error {
-    p := pipeline.NewPipeline().WithContext(data).WithSteps(
+    p := pipeline.NewPipeline().WithSteps(
         pipeline.NewStep("prepareTransaction", prepareTransaction()),
         pipeline.NewStep("executeQuery", executeQuery()),
         pipeline.NewStep("commitTransaction", commit()),
     )
-    return p.Run().Err
+    return p.RunWithContext(context.WithValue(context.Background(), myKey, data).Err
 }
 
 func executeQuery() pipeline.ActionFunc {
-	return func(ctx pipeline.Context) pipeline.Result {
-		data := ctx.(Data)
+	return func(ctx context.Context) pipeline.Result {
+		data := ctx.Value(myKey).(*Data)
 		err := database.executeQuery("SOME QUERY", data)
 		return pipeline.Result{Err: err}
 	)

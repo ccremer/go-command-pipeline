@@ -16,26 +16,27 @@ type Data struct {
 	Number int
 }
 
+var key = struct{}{}
+
 func TestExample_Context(t *testing.T) {
 	// Create pipeline with defaults
 	p := pipeline.NewPipeline()
-	p.WithContext(context.WithValue(context.Background(), "data", &Data{}))
 	p.WithSteps(
 		pipeline.NewStep("define random number", defineNumber),
 		pipeline.NewStepFromFunc("print number", printNumber),
 	)
-	result := p.Run()
+	result := p.RunWithContext(context.WithValue(context.Background(), key, &Data{}))
 	if !result.IsSuccessful() {
 		t.Fatal(result.Err)
 	}
 }
 
 func defineNumber(ctx context.Context) pipeline.Result {
-	ctx.Value("data").(*Data).Number = rand.Int()
+	ctx.Value(key).(*Data).Number = rand.Int()
 	return pipeline.Result{}
 }
 
 func printNumber(ctx context.Context) error {
-	_, err := fmt.Println(ctx.Value("data").(*Data).Number)
+	_, err := fmt.Println(ctx.Value(key).(*Data).Number)
 	return err
 }

@@ -3,7 +3,9 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -163,6 +165,54 @@ func TestPipeline_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
+	p := NewPipeline().WithSteps(
+		NewStepFromFunc("long running", func(ctx context.Context) error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ErrCanceled
+				default:
+					// doing nothing
+				}
+			}
+		}),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	result := p.RunWithContext(ctx)
+	cancel()
+	assert.True(t, result.IsCanceled(), "IsCanceled()")
+	assert.Equal(t, "long running", result.Name())
+	assert.EqualError(t, result.Err, "step \"long running\" failed: canceled")
+}
+
+func ExamplePipeline_RunWithContext() {
+	// prepare pipeline
+	p := NewPipeline().WithSteps(
+		NewStepFromFunc("short step", func(ctx context.Context) error {
+			fmt.Println("short step")
+			return nil
+		}),
+		NewStepFromFunc("long running step", func(ctx context.Context) error {
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		}),
+		NewStepFromFunc("canceled step", func(ctx context.Context) error {
+			return errors.New("shouldn't execute")
+		}),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	result := p.RunWithContext(ctx)
+	// cancel the pipeline
+	cancel()
+	// inspect the result
+	fmt.Println(result.IsCanceled())
+	fmt.Println(result.Err)
+	// Output: short step
+	// true
+	// step "canceled step" failed: context deadline exceeded
 }
 
 func TestNewStepFromFunc(t *testing.T) {

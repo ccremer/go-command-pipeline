@@ -46,7 +46,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				assert.Error(t, results[0].Err)
 				return pipeline.Result{Err: results[0].Err}
 			})
-			result := step.F(nil)
+			result := step.F(context.Background())
 			assert.Error(t, result.Err)
 		})
 	}
