@@ -155,6 +155,6 @@ func (p *Pipeline) fail(err error, step Step) Result {
 	} else {
 		result.Err = fmt.Errorf("step %q failed: %w", step.Name, err)
 	}
-	result.canceled = errors.Is(err, ErrCanceled) || errors.Is(err, context.DeadlineExceeded)
+	result.canceled = errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 	return result
 }

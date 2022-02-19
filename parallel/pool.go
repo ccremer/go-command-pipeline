@@ -28,7 +28,7 @@ func NewWorkerPoolStep(name string, size int, pipelineSupplier PipelineSupplier,
 		var wg sync.WaitGroup
 		count := uint64(0)
 
-		go pipelineSupplier(pipelineChan)
+		go pipelineSupplier(ctx, pipelineChan)
 		for i := 0; i < size; i++ {
 			wg.Add(1)
 			go poolWork(ctx, pipelineChan, &wg, &count, &m)

@@ -36,7 +36,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				})
 				return
 			}
-			step := NewWorkerPoolStep("pool", 1, func(pipelines chan *pipeline.Pipeline) {
+			step := NewWorkerPoolStep("pool", 1, func(ctx context.Context, pipelines chan *pipeline.Pipeline) {
 				defer close(pipelines)
 				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
 					atomic.AddUint64(&counts, 1)
@@ -54,7 +54,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 
 func ExampleNewWorkerPoolStep() {
 	p := pipeline.NewPipeline()
-	pool := NewWorkerPoolStep("pool", 2, func(pipelines chan *pipeline.Pipeline) {
+	pool := NewWorkerPoolStep("pool", 2, func(ctx context.Context, pipelines chan *pipeline.Pipeline) {
 		defer close(pipelines)
 		// create some pipelines
 		for i := 0; i < 3; i++ {

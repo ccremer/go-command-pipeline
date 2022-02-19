@@ -5,9 +5,6 @@ import "errors"
 // ErrAbort indicates that the pipeline should be terminated immediately without being marked as failed (returning an error).
 var ErrAbort = errors.New("abort")
 
-// ErrCanceled indicates that the pipeline has been canceled.
-var ErrCanceled = errors.New("canceled")
-
 // Result is the object that is returned after each step and after running a pipeline.
 type Result struct {
 	// Err contains the step's returned error, nil otherwise.
@@ -44,4 +41,10 @@ func (r Result) IsAborted() bool {
 // IsCanceled returns true if the pipeline's context has been canceled.
 func (r Result) IsCanceled() bool {
 	return r.canceled
+}
+
+// Canceled sets Result.IsCanceled to true.
+func Canceled(result Result) Result {
+	result.canceled = true
+	return result
 }

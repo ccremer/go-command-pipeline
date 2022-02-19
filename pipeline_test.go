@@ -173,7 +173,7 @@ func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
 			for {
 				select {
 				case <-ctx.Done():
-					return ErrCanceled
+					return ctx.Err()
 				default:
 					// doing nothing
 				}
@@ -181,11 +181,14 @@ func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
 		}),
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+	}()
 	result := p.RunWithContext(ctx)
-	cancel()
 	assert.True(t, result.IsCanceled(), "IsCanceled()")
 	assert.Equal(t, "long running", result.Name())
-	assert.EqualError(t, result.Err, "step \"long running\" failed: canceled")
+	assert.EqualError(t, result.Err, "step \"long running\" failed: context canceled")
 }
 
 func ExamplePipeline_RunWithContext() {
@@ -203,10 +206,9 @@ func ExamplePipeline_RunWithContext() {
 			return errors.New("shouldn't execute")
 		}),
 	)
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
 	result := p.RunWithContext(ctx)
-	// cancel the pipeline
-	cancel()
 	// inspect the result
 	fmt.Println(result.IsCanceled())
 	fmt.Println(result.Err)
