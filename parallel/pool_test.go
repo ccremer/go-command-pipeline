@@ -39,16 +39,17 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				})
 				return
 			}
-			step := NewWorkerPoolStep("pool", 1, func(ctx context.Context, pipelines chan *pipeline.Pipeline) {
-				defer close(pipelines)
-				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
+			pipes := []*pipeline.Pipeline{
+				pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
 					atomic.AddUint64(&counts, 1)
 					return pipeline.Result{Err: tt.expectedError}
-				}))
-			}, func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
-				assert.Error(t, results[0].Err)
-				return pipeline.Result{Err: results[0].Err}
-			})
+				})),
+			}
+			step := NewWorkerPoolStep("pool", 1, SupplierFromSlice(pipes),
+				func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
+					assert.Error(t, results[0].Err)
+					return pipeline.Result{Err: results[0].Err}
+				})
 			result := step.F(context.Background())
 			assert.Error(t, result.Err)
 		})
