@@ -11,35 +11,39 @@ Small Go utility that executes business actions in a pipeline.
 
 ```go
 import (
+    "context"
     pipeline "github.com/ccremer/go-command-pipeline"
     "github.com/ccremer/go-command-pipeline/predicate"
 )
 
+type Data struct {
+    Number int
+}
+
 func main() {
-	number := 0 // define arbitrary data to pass around in the steps.
+	data := &Data // define arbitrary data to pass around in the steps.
 	p := pipeline.NewPipeline()
-	p.WithContext(&number)
 	p.WithSteps(
 		pipeline.NewStep("define random number", defineNumber),
 		pipeline.NewStepFromFunc("print number", printNumber),
 	)
-	result := p.Run()
+	result := p.RunWithContext(context.WithValue(context.Background, "data", data))
 	if !result.IsSuccessful() {
 		log.Fatal(result.Err)
 	}
 }
 
-func defineNumber(ctx pipeline.Context) pipeline.Result {
-	ctx.(*int) = 10
+func defineNumber(ctx context.Context) pipeline.Result {
+	ctx.Value("data").(*Data).Number = 10
 	return pipeline.Result{}
 }
 
 // Let's assume this is a business function that can fail.
 // You can enable "automatic" fail-on-first-error pipelines by having more small functions that return errors.
-func printNumber(ctx pipeline.Context) error {
-	number := ctx.(*int)
-	_, err := fmt.Println(*number)
-	return err
+func printNumber(ctx context.Context) error {
+	number := ctx.Value("data").(*Data).Number
+	fmt.Println(number)
+	return nil
 }
 ```
 
@@ -70,7 +74,7 @@ We have tons of `if err != nil` that bloats the function with more error handlin
 
 It could be simplified to something like this:
 ```go
-func Persist(data Data) error {
+func Persist(data *Data) error {
     p := pipeline.NewPipeline().WithSteps(
         pipeline.NewStep("prepareTransaction", prepareTransaction()),
         pipeline.NewStep("executeQuery", executeQuery()),
