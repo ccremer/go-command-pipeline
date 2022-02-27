@@ -4,6 +4,7 @@
 package examples
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/exec"
@@ -26,27 +27,27 @@ func TestExample_Git(t *testing.T) {
 	}
 }
 
-func logSuccess(ctx pipeline.Context, result pipeline.Result) error {
+func logSuccess(_ context.Context, result pipeline.Result) error {
 	log.Println("handler called")
 	return result.Err
 }
 
 func CloneGitRepository() pipeline.ActionFunc {
-	return func(_ pipeline.Context) pipeline.Result {
+	return func(_ context.Context) pipeline.Result {
 		err := execGitCommand("clone", "git@github.com/ccremer/go-command-pipeline")
 		return pipeline.Result{Err: err}
 	}
 }
 
 func Pull() pipeline.ActionFunc {
-	return func(_ pipeline.Context) pipeline.Result {
+	return func(_ context.Context) pipeline.Result {
 		err := execGitCommand("pull")
 		return pipeline.Result{Err: err}
 	}
 }
 
 func CheckoutBranch() pipeline.ActionFunc {
-	return func(_ pipeline.Context) pipeline.Result {
+	return func(_ context.Context) pipeline.Result {
 		err := execGitCommand("checkout", "master")
 		return pipeline.Result{Err: err}
 	}
@@ -61,7 +62,7 @@ func execGitCommand(args ...string) error {
 }
 
 func DirExists(path string) predicate.Predicate {
-	return func(_ pipeline.Context) bool {
+	return func(_ context.Context) bool {
 		if info, err := os.Stat(path); err != nil || !info.IsDir() {
 			return false
 		}

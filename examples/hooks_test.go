@@ -4,6 +4,7 @@
 package examples
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -16,7 +17,7 @@ func TestExample_Hooks(t *testing.T) {
 		fmt.Println(fmt.Sprintf("Executing step: %s", step.Name))
 	})
 	p.WithSteps(
-		pipeline.NewStep("hook demo", AfterHookAction()),
+		pipeline.NewStepFromFunc("hook demo", AfterHookAction),
 	)
 	result := p.Run()
 	if !result.IsSuccessful() {
@@ -24,9 +25,7 @@ func TestExample_Hooks(t *testing.T) {
 	}
 }
 
-func AfterHookAction() pipeline.ActionFunc {
-	return func(ctx pipeline.Context) pipeline.Result {
-		fmt.Println("I am called in an action after the hooks")
-		return pipeline.Result{}
-	}
+func AfterHookAction(_ context.Context) error {
+	fmt.Println("I am called in an action after the hooks")
+	return nil
 }

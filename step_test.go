@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -24,9 +25,9 @@ func TestStep_WithErrorHandler(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			executed := false
-			s := NewStepFromFunc("test", func(_ Context) error {
+			s := NewStepFromFunc("test", func(_ context.Context) error {
 				return nil
-			}).WithErrorHandler(func(_ Context, err error) error {
+			}).WithErrorHandler(func(_ context.Context, err error) error {
 				executed = true
 				return err
 			})

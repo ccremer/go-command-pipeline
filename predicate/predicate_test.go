@@ -1,6 +1,7 @@
 package predicate
 
 import (
+	"context"
 	"testing"
 
 	pipeline "github.com/ccremer/go-command-pipeline"
@@ -58,7 +59,7 @@ func Test_Predicates(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := ToStep("name", func(_ pipeline.Context) pipeline.Result {
+			step := ToStep("name", func(_ context.Context) pipeline.Result {
 				counter += 1
 				return pipeline.Result{}
 			}, tt.givenPredicate)
@@ -88,7 +89,7 @@ func TestToNestedStep(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			p := pipeline.NewPipeline().AddStep(pipeline.NewStep("nested step", func(_ pipeline.Context) pipeline.Result {
+			p := pipeline.NewPipeline().AddStep(pipeline.NewStep("nested step", func(_ context.Context) pipeline.Result {
 				counter++
 				return pipeline.Result{}
 			}))
@@ -118,7 +119,7 @@ func TestIf(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := pipeline.NewStep("step", func(_ pipeline.Context) pipeline.Result {
+			step := pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
 				counter++
 				return pipeline.Result{}
 			})
@@ -135,7 +136,7 @@ func TestBoolPtr(t *testing.T) {
 	called := false
 	b := false
 	p := pipeline.NewPipeline().WithSteps(
-		If(BoolPtr(&b), pipeline.NewStepFromFunc("boolptr", func(_ pipeline.Context) error {
+		If(BoolPtr(&b), pipeline.NewStepFromFunc("boolptr", func(_ context.Context) error {
 			called = true
 			return nil
 		})),
@@ -146,14 +147,14 @@ func TestBoolPtr(t *testing.T) {
 }
 
 func truePredicate(counter *int) Predicate {
-	return func(_ pipeline.Context) bool {
+	return func(_ context.Context) bool {
 		*counter++
 		return true
 	}
 }
 
 func falsePredicate(counter *int) Predicate {
-	return func(_ pipeline.Context) bool {
+	return func(_ context.Context) bool {
 		*counter--
 		return false
 	}

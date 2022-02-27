@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -11,7 +12,7 @@ func TestPipeline_WithOptions(t *testing.T) {
 	t.Run("DisableErrorWrapping", func(t *testing.T) {
 		p := NewPipeline().WithOptions(DisableErrorWrapping)
 		p.WithSteps(
-			NewStepFromFunc("disabled error wrapping", func(_ Context) error {
+			NewStepFromFunc("disabled error wrapping", func(_ context.Context) error {
 				return errors.New("some error")
 			}),
 		)
