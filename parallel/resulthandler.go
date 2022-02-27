@@ -29,12 +29,11 @@ func collectResults(ctx context.Context, handler ResultHandler, m *sync.Map) pip
 
 func setResultErrorFromContext(ctx context.Context, result pipeline.Result) pipeline.Result {
 	if ctx.Err() != nil {
-		if result.Err != nil {
-			result.Err = fmt.Errorf("%w, collection error: %v", ctx.Err(), result.Err)
-			return pipeline.Canceled(result)
+		if result.Err() != nil {
+			err := fmt.Errorf("%w, collection error: %v", ctx.Err(), result.Err())
+			return pipeline.NewResult(result.Name(), err, result.IsAborted(), true)
 		}
-		result.Err = ctx.Err()
-		return pipeline.Canceled(result)
+		return pipeline.NewResult(result.Name(), ctx.Err(), result.IsAborted(), true)
 	}
 	return result
 }

@@ -7,13 +7,35 @@ var ErrAbort = errors.New("abort")
 
 // Result is the object that is returned after each step and after running a pipeline.
 type Result struct {
-	// Err contains the step's returned error, nil otherwise.
-	// In an aborted pipeline with ErrAbort it will still be nil.
-	Err error
-
+	err      error
 	name     string
 	aborted  bool
 	canceled bool
+}
+
+// NewEmptyResult returns a Result with just the name.
+func NewEmptyResult(stepName string) Result {
+	return Result{
+		name: stepName,
+	}
+}
+
+// NewResult is the constructor for all properties.
+func NewResult(stepName string, err error, aborted, canceled bool) Result {
+	return Result{
+		name:     stepName,
+		err:      err,
+		aborted:  aborted,
+		canceled: canceled,
+	}
+}
+
+// NewResultWithError constructs a Result with given name and error.
+func NewResultWithError(stepName string, err error) Result {
+	return Result{
+		name: stepName,
+		err:  err,
+	}
 }
 
 // Name retrieves the name of the (last) step that has been executed.
@@ -21,16 +43,22 @@ func (r Result) Name() string {
 	return r.name
 }
 
+// Err contains the step's returned error, nil otherwise.
+// In an aborted pipeline with ErrAbort it will still be nil.
+func (r Result) Err() error {
+	return r.err
+}
+
 // IsSuccessful returns true if the contained error is nil.
 // Aborted pipelines (with ErrAbort) are still reported as success.
 // To query if a pipeline is aborted early, use IsAborted.
 func (r Result) IsSuccessful() bool {
-	return r.Err == nil
+	return r.err == nil
 }
 
 // IsFailed returns true if the contained error is non-nil.
 func (r Result) IsFailed() bool {
-	return r.Err != nil
+	return r.err != nil
 }
 
 // IsAborted returns true if the pipeline didn't stop with an error, but just aborted early with ErrAbort.
@@ -41,10 +69,4 @@ func (r Result) IsAborted() bool {
 // IsCanceled returns true if the pipeline's context has been canceled.
 func (r Result) IsCanceled() bool {
 	return r.canceled
-}
-
-// Canceled sets Result.IsCanceled to true.
-func Canceled(result Result) Result {
-	result.canceled = true
-	return result
 }

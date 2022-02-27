@@ -31,7 +31,7 @@ func TestStep_WithErrorHandler(t *testing.T) {
 				executed = true
 				return err
 			})
-			err := s.H(nil, Result{Err: tt.givenError})
+			err := s.H(nil, Result{err: tt.givenError})
 			assert.Equal(t, tt.givenError, err)
 			assert.Equal(t, tt.expectedExecution, executed)
 		})

@@ -14,7 +14,7 @@ func NewStep(name string, action ActionFunc) Step {
 func NewStepFromFunc(name string, fn func(ctx context.Context) error) Step {
 	return NewStep(name, func(ctx context.Context) Result {
 		err := fn(ctx)
-		return Result{Err: err, name: name}
+		return NewResult(name, err, false, false)
 	})
 }
 
@@ -29,7 +29,7 @@ func (s Step) WithResultHandler(handler ResultHandler) Step {
 func (s Step) WithErrorHandler(errorHandler func(ctx context.Context, err error) error) Step {
 	s.H = func(ctx context.Context, result Result) error {
 		if result.IsFailed() {
-			return errorHandler(ctx, result.Err)
+			return errorHandler(ctx, result.Err())
 		}
 		return nil
 	}

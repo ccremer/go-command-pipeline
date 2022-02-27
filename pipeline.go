@@ -110,7 +110,7 @@ func (p *Pipeline) Run() Result {
 func (p *Pipeline) RunWithContext(ctx context.Context) Result {
 	result := p.doRun(ctx)
 	if p.finalizer != nil {
-		result.Err = p.finalizer(ctx, result)
+		result.err = p.finalizer(ctx, result)
 	}
 	return result
 }
@@ -134,7 +134,7 @@ func (p *Pipeline) doRun(ctx context.Context) Result {
 				result.name = step.Name
 				err = step.H(ctx, result)
 			} else {
-				err = result.Err
+				err = result.Err()
 			}
 			if err != nil {
 				if errors.Is(err, ErrAbort) {
@@ -149,12 +149,12 @@ func (p *Pipeline) doRun(ctx context.Context) Result {
 }
 
 func (p *Pipeline) fail(err error, step Step) Result {
-	result := Result{name: step.Name}
+	var resultErr error
 	if p.options.disableErrorWrapping {
-		result.Err = err
+		resultErr = err
 	} else {
-		result.Err = fmt.Errorf("step %q failed: %w", step.Name, err)
+		resultErr = fmt.Errorf("step %q failed: %w", step.Name, err)
 	}
-	result.canceled = errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-	return result
+	canceled := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return NewResult(step.Name, resultErr, false, canceled)
 }

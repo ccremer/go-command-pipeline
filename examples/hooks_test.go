@@ -21,7 +21,7 @@ func TestExample_Hooks(t *testing.T) {
 	)
 	result := p.Run()
 	if !result.IsSuccessful() {
-		t.Fatal(result.Err)
+		t.Fatal(result.Err())
 	}
 }
 
