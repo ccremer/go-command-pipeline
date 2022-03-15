@@ -3,7 +3,7 @@ module github.com/ccremer/go-command-pipeline
 go 1.17
 
 require (
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	go.uber.org/goleak v1.1.12
 )
 
