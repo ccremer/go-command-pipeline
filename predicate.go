@@ -1,56 +1,52 @@
-package predicate
+package pipeline
 
 import (
 	"context"
-
-	pipeline "github.com/ccremer/go-command-pipeline"
 )
 
-type (
-	// Predicate is a function that expects 'true' if a pipeline.ActionFunc should run.
-	// It is evaluated lazily resp. only when needed.
-	Predicate func(ctx context.Context) bool
-)
+// Predicate is a function that expects 'true' if a ActionFunc should run.
+// It is evaluated lazily resp. only when needed.
+type Predicate func(ctx context.Context) bool
 
 // ToStep wraps the given action func in its own step.
 // When the step's function is called, the given Predicate will evaluate whether the action should actually run.
-// It returns the action's pipeline.Result, otherwise an empty (successful) pipeline.Result struct.
+// It returns the action's Result, otherwise an empty (successful) Result struct.
 // The context.Context from the pipeline is passed through the given action.
-func ToStep(name string, action pipeline.ActionFunc, predicate Predicate) pipeline.Step {
-	step := pipeline.Step{Name: name}
-	step.F = func(ctx context.Context) pipeline.Result {
+func ToStep(name string, action ActionFunc, predicate Predicate) Step {
+	step := Step{Name: name}
+	step.F = func(ctx context.Context) Result {
 		if predicate(ctx) {
 			return action(ctx)
 		}
-		return pipeline.NewEmptyResult(name)
+		return NewEmptyResult(name)
 	}
 	return step
 }
 
 // ToNestedStep wraps the given pipeline in its own step.
-// When the step's function is called, the given Predicate will evaluate whether the nested pipeline.Pipeline should actually run.
-// It returns the pipeline's pipeline.Result, otherwise an empty (successful) pipeline.Result struct.
+// When the step's function is called, the given Predicate will evaluate whether the nested Pipeline should actually run.
+// It returns the pipeline's Result, otherwise an empty (successful) Result struct.
 // The given pipeline has to define its own context.Context, it's not passed "down".
-func ToNestedStep(name string, predicate Predicate, p *pipeline.Pipeline) pipeline.Step {
-	step := pipeline.Step{Name: name}
-	step.F = func(ctx context.Context) pipeline.Result {
+func ToNestedStep(name string, predicate Predicate, p *Pipeline) Step {
+	step := Step{Name: name}
+	step.F = func(ctx context.Context) Result {
 		if predicate(ctx) {
 			return p.Run()
 		}
-		return pipeline.NewEmptyResult(name)
+		return NewEmptyResult(name)
 	}
 	return step
 }
 
 // If returns a new step that wraps the given step and executes its action only if the given Predicate evaluates true.
 // The context.Context from the pipeline is passed through the given action.
-func If(predicate Predicate, originalStep pipeline.Step) pipeline.Step {
-	wrappedStep := pipeline.Step{Name: originalStep.Name}
-	wrappedStep.F = func(ctx context.Context) pipeline.Result {
+func If(predicate Predicate, originalStep Step) Step {
+	wrappedStep := Step{Name: originalStep.Name}
+	wrappedStep.F = func(ctx context.Context) Result {
 		if predicate(ctx) {
 			return originalStep.F(ctx)
 		}
-		return pipeline.NewEmptyResult(originalStep.Name)
+		return NewEmptyResult(originalStep.Name)
 	}
 	return wrappedStep
 }

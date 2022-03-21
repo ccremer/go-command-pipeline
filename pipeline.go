@@ -22,7 +22,7 @@ type Step struct {
 	// F is the ActionFunc assigned to a pipeline Step.
 	// This is required.
 	F ActionFunc
-	// H is the ResultHandler assigned to a pipeline Step.
+	// H is the ParallelResultHandler assigned to a pipeline Step.
 	// This is optional, and it will be called in any case if it is set after F completed.
 	// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
 	// The function may return nil even if the Result contains an error, in which case the pipeline will continue.

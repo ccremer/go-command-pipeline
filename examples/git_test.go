@@ -11,13 +11,12 @@ import (
 	"testing"
 
 	pipeline "github.com/ccremer/go-command-pipeline"
-	"github.com/ccremer/go-command-pipeline/predicate"
 )
 
 func TestExample_Git(t *testing.T) {
 	p := pipeline.NewPipeline()
 	p.WithSteps(
-		predicate.ToStep("clone repository", CloneGitRepository(), predicate.Not(DirExists("my-repo"))),
+		pipeline.ToStep("clone repository", CloneGitRepository(), pipeline.Not(DirExists("my-repo"))),
 		pipeline.NewStep("checkout branch", CheckoutBranch()),
 		pipeline.NewStep("pull", Pull()).WithResultHandler(logSuccess),
 	)
@@ -61,7 +60,7 @@ func execGitCommand(args ...string) error {
 	return err
 }
 
-func DirExists(path string) predicate.Predicate {
+func DirExists(path string) pipeline.Predicate {
 	return func(_ context.Context) bool {
 		if info, err := os.Stat(path); err != nil || !info.IsDir() {
 			return false
