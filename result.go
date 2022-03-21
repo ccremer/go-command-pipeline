@@ -49,10 +49,15 @@ func (r Result) Err() error {
 	return r.err
 }
 
-// IsSuccessful returns true if the contained error is nil.
-// Aborted pipelines (with ErrAbort) are still reported as success.
-// To query if a pipeline is aborted early, use IsAborted.
+// IsSuccessful returns true if the contained error is nil and not aborted.
 func (r Result) IsSuccessful() bool {
+	return r.err == nil && r.aborted == false
+}
+
+// IsCompleted returns true if the contained error is nil.
+// Aborted pipelines (with ErrAbort) are still reported as completed.
+// To query if a pipeline is aborted early, use IsAborted.
+func (r Result) IsCompleted() bool {
 	return r.err == nil
 }
 

@@ -113,6 +113,9 @@ func TestPipeline_Run(t *testing.T) {
 					return Result{}
 				}),
 			},
+			additionalAssertions: func(t *testing.T, result Result) {
+				assert.True(t, result.IsSuccessful())
+			},
 			expectedCalls: 3,
 		},
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell": {
@@ -157,7 +160,7 @@ func TestPipeline_Run(t *testing.T) {
 				assert.Contains(t, actualResult.Err().Error(), tt.expectErrorString)
 			} else {
 				assert.NoError(t, actualResult.Err())
-				assert.True(t, actualResult.IsSuccessful())
+				assert.True(t, actualResult.IsCompleted())
 			}
 			assert.Equal(t, tt.expectedCalls, callCount)
 			if tt.additionalAssertions != nil {
