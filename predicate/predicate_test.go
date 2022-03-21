@@ -65,7 +65,7 @@ func Test_Predicates(t *testing.T) {
 			}, tt.givenPredicate)
 			result := step.F(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
-			assert.NoError(t, result.Err)
+			assert.NoError(t, result.Err())
 		})
 	}
 }
@@ -125,7 +125,7 @@ func TestIf(t *testing.T) {
 			})
 			wrapped := If(tt.givenPredicate, step)
 			result := wrapped.F(nil)
-			require.NoError(t, result.Err)
+			require.NoError(t, result.Err())
 			assert.Equal(t, tt.expectedCalls, counter)
 			assert.Equal(t, step.Name, wrapped.Name)
 		})

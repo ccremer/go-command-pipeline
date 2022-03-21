@@ -42,16 +42,16 @@ func TestNewWorkerPoolStep(t *testing.T) {
 			pipes := []*pipeline.Pipeline{
 				pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
 					atomic.AddUint64(&counts, 1)
-					return pipeline.Result{Err: tt.expectedError}
+					return pipeline.NewResultWithError("step", tt.expectedError)
 				})),
 			}
 			step := NewWorkerPoolStep("pool", 1, SupplierFromSlice(pipes),
 				func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
-					assert.Error(t, results[0].Err)
-					return pipeline.Result{Err: results[0].Err}
+					assert.Error(t, results[0].Err())
+					return pipeline.NewResultWithError("pool", results[0].Err())
 				})
 			result := step.F(context.Background())
-			assert.Error(t, result.Err)
+			assert.Error(t, result.Err())
 		})
 	}
 }
@@ -82,13 +82,13 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			// The first 6 jobs are successful
 			assert.Equal(t, "increase", results[r].Name())
 			assert.False(t, results[r].IsCanceled())
-			assert.NoError(t, results[r].Err)
+			assert.NoError(t, results[r].Err())
 		}
 		for r := uint64(6); r < 9; r++ {
 			// remaining jobs were cancelled
 			assert.Equal(t, "noop", results[r].Name())
 			assert.True(t, results[r].IsCanceled())
-			assert.EqualError(t, results[r].Err, `step "noop" failed: context deadline exceeded`)
+			assert.EqualError(t, results[r].Err(), `step "noop" failed: context deadline exceeded`)
 		}
 		return pipeline.Result{}
 	})
@@ -98,7 +98,7 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 	assert.Equal(t, 6, int(counts), "successful increments")
 	assert.True(t, result.IsCanceled(), "overall canceled flag")
 	assert.False(t, result.IsSuccessful(), "overall success flag")
-	assert.EqualError(t, result.Err, `step "workerpool" failed: context deadline exceeded`)
+	assert.EqualError(t, result.Err(), `step "workerpool" failed: context deadline exceeded`)
 }
 
 func ExampleNewWorkerPoolStep() {
@@ -112,17 +112,17 @@ func ExampleNewWorkerPoolStep() {
 			case <-ctx.Done():
 				return // parent pipeline has been canceled, let's not create more pipelines.
 			default:
-				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStep(fmt.Sprintf("i = %d", n), func(_ context.Context) pipeline.Result {
+				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStepFromFunc(fmt.Sprintf("i = %d", n), func(_ context.Context) error {
 					time.Sleep(time.Duration(n * 100000000)) // fake some load
 					fmt.Println(fmt.Sprintf("This is job item %d", n))
-					return pipeline.Result{}
+					return nil
 				}))
 			}
 		}
 	}, func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
 		for jobIndex, result := range results {
 			if result.IsFailed() {
-				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err))
+				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err()))
 			}
 		}
 		return pipeline.Result{}

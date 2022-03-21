@@ -23,33 +23,33 @@ func TestExample_Git(t *testing.T) {
 	)
 	result := p.Run()
 	if !result.IsSuccessful() {
-		t.Fatal(result.Err)
+		t.Fatal(result.Err())
 	}
 }
 
 func logSuccess(_ context.Context, result pipeline.Result) error {
 	log.Println("handler called")
-	return result.Err
+	return result.Err()
 }
 
 func CloneGitRepository() pipeline.ActionFunc {
 	return func(_ context.Context) pipeline.Result {
 		err := execGitCommand("clone", "git@github.com/ccremer/go-command-pipeline")
-		return pipeline.Result{Err: err}
+		return pipeline.NewResultWithError("clone repository", err)
 	}
 }
 
 func Pull() pipeline.ActionFunc {
 	return func(_ context.Context) pipeline.Result {
 		err := execGitCommand("pull")
-		return pipeline.Result{Err: err}
+		return pipeline.NewResultWithError("pull", err)
 	}
 }
 
 func CheckoutBranch() pipeline.ActionFunc {
 	return func(_ context.Context) pipeline.Result {
 		err := execGitCommand("checkout", "master")
-		return pipeline.Result{Err: err}
+		return pipeline.NewResultWithError("checkout branch", err)
 	}
 }
 

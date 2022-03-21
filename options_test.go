@@ -18,6 +18,6 @@ func TestPipeline_WithOptions(t *testing.T) {
 		)
 		assert.True(t, p.options.disableErrorWrapping)
 		result := p.Run()
-		assert.Equal(t, "some error", result.Err.Error())
+		assert.Equal(t, "some error", result.Err().Error())
 	})
 }

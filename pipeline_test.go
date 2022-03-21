@@ -60,7 +60,7 @@ func TestPipeline_Run(t *testing.T) {
 			givenSteps: []Step{
 				NewStep("test-step", func(_ context.Context) Result {
 					callCount += 1
-					return Result{Err: errors.New("step failed")}
+					return Result{err: errors.New("step failed")}
 				}),
 			},
 			expectedCalls:     1,
@@ -103,7 +103,7 @@ func TestPipeline_Run(t *testing.T) {
 			givenSteps: []Step{
 				NewStep("test-step", func(_ context.Context) Result {
 					callCount += 1
-					return Result{Err: errors.New("failed step")}
+					return Result{err: errors.New("failed step")}
 				}).WithResultHandler(func(_ context.Context, result Result) error {
 					callCount += 1
 					return nil
@@ -152,11 +152,11 @@ func TestPipeline_Run(t *testing.T) {
 			}
 			actualResult := p.Run()
 			if tt.expectErrorString != "" {
-				require.Error(t, actualResult.Err)
+				require.Error(t, actualResult.Err())
 				assert.True(t, actualResult.IsFailed())
-				assert.Contains(t, actualResult.Err.Error(), tt.expectErrorString)
+				assert.Contains(t, actualResult.Err().Error(), tt.expectErrorString)
 			} else {
-				assert.NoError(t, actualResult.Err)
+				assert.NoError(t, actualResult.Err())
 				assert.True(t, actualResult.IsSuccessful())
 			}
 			assert.Equal(t, tt.expectedCalls, callCount)
@@ -188,7 +188,7 @@ func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
 	result := p.RunWithContext(ctx)
 	assert.True(t, result.IsCanceled(), "IsCanceled()")
 	assert.Equal(t, "long running", result.Name())
-	assert.EqualError(t, result.Err, "step \"long running\" failed: context canceled")
+	assert.EqualError(t, result.Err(), "step \"long running\" failed: context canceled")
 }
 
 func ExamplePipeline_RunWithContext() {
@@ -211,7 +211,7 @@ func ExamplePipeline_RunWithContext() {
 	result := p.RunWithContext(ctx)
 	// inspect the result
 	fmt.Println(result.IsCanceled())
-	fmt.Println(result.Err)
+	fmt.Println(result.Err())
 	// Output: short step
 	// true
 	// step "canceled step" failed: context deadline exceeded

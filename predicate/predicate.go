@@ -22,7 +22,7 @@ func ToStep(name string, action pipeline.ActionFunc, predicate Predicate) pipeli
 		if predicate(ctx) {
 			return action(ctx)
 		}
-		return pipeline.Result{}
+		return pipeline.NewEmptyResult(name)
 	}
 	return step
 }
@@ -37,7 +37,7 @@ func ToNestedStep(name string, predicate Predicate, p *pipeline.Pipeline) pipeli
 		if predicate(ctx) {
 			return p.Run()
 		}
-		return pipeline.Result{}
+		return pipeline.NewEmptyResult(name)
 	}
 	return step
 }
@@ -50,7 +50,7 @@ func If(predicate Predicate, originalStep pipeline.Step) pipeline.Step {
 		if predicate(ctx) {
 			return originalStep.F(ctx)
 		}
-		return pipeline.Result{}
+		return pipeline.NewEmptyResult(originalStep.Name)
 	}
 	return wrappedStep
 }

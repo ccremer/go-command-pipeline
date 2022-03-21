@@ -27,7 +27,7 @@ func TestExample_Context(t *testing.T) {
 	)
 	result := p.RunWithContext(context.WithValue(context.Background(), key, &Data{}))
 	if !result.IsSuccessful() {
-		t.Fatal(result.Err)
+		t.Fatal(result.Err())
 	}
 }
 
