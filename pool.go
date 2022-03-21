@@ -34,7 +34,7 @@ func NewWorkerPoolStep(name string, size int, pipelineSupplier Supplier, handler
 
 		wg.Wait()
 		res := collectResults(ctx, handler, &m)
-		return setResultErrorFromContext(ctx, res)
+		return setResultErrorFromContext(ctx, name, res)
 	}
 	return step
 }

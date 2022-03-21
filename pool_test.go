@@ -41,13 +41,13 @@ func TestNewWorkerPoolStep(t *testing.T) {
 			pipes := []*Pipeline{
 				NewPipeline().AddStep(NewStep("step", func(_ context.Context) Result {
 					atomic.AddUint64(&counts, 1)
-					return NewResultWithError("step", tt.expectedError)
+					return newResultWithError("step", tt.expectedError)
 				})),
 			}
 			step := NewWorkerPoolStep("pool", 1, SupplierFromSlice(pipes),
-				func(ctx context.Context, results map[uint64]Result) Result {
+				func(ctx context.Context, results map[uint64]Result) error {
 					assert.Error(t, results[0].Err())
-					return NewResultWithError("pool", results[0].Err())
+					return results[0].Err()
 				})
 			result := step.F(context.Background())
 			assert.Error(t, result.Err())
@@ -75,7 +75,7 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			}
 		}
 		t.Fail() // should not reach this
-	}, func(ctx context.Context, results map[uint64]Result) Result {
+	}, func(ctx context.Context, results map[uint64]Result) error {
 		require.Len(t, results, 9)
 		for r := uint64(0); r < 6; r++ {
 			// The first 6 jobs are successful
@@ -89,7 +89,7 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			assert.True(t, results[r].IsCanceled())
 			assert.EqualError(t, results[r].Err(), `step "noop" failed: context deadline exceeded`)
 		}
-		return Result{}
+		return nil
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
@@ -118,13 +118,13 @@ func ExampleNewWorkerPoolStep() {
 				}))
 			}
 		}
-	}, func(ctx context.Context, results map[uint64]Result) Result {
+	}, func(ctx context.Context, results map[uint64]Result) error {
 		for jobIndex, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err()))
 			}
 		}
-		return Result{}
+		return nil
 	})
 	p.AddStep(pool)
 	p.Run()

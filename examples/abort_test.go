@@ -19,8 +19,9 @@ func TestExample_Abort(t *testing.T) {
 		pipeline.NewStepFromFunc("never executed", doNotExecute),
 	)
 	result := p.Run()
-	assert.True(t, result.IsSuccessful())
+	assert.True(t, result.IsCompleted())
 	assert.True(t, result.IsAborted())
+	assert.False(t, result.IsSuccessful())
 }
 
 func doNotExecute(_ context.Context) error {

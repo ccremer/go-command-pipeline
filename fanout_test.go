@@ -30,9 +30,9 @@ func TestNewFanOutStep(t *testing.T) {
 		"GivenPipelineWith_WhenRunningStep_ThenReturnSuccessButRunErrorHandler": {
 			jobs:      1,
 			returnErr: fmt.Errorf("should be called"),
-			givenResultHandler: func(ctx context.Context, _ map[uint64]Result) Result {
+			givenResultHandler: func(ctx context.Context, _ map[uint64]Result) error {
 				atomic.AddUint64(&counts, 1)
-				return Result{}
+				return nil
 			},
 			expectedCounts: 2,
 		},
@@ -43,9 +43,9 @@ func TestNewFanOutStep(t *testing.T) {
 			goleak.VerifyNone(t)
 			handler := tt.givenResultHandler
 			if handler == nil {
-				handler = func(ctx context.Context, results map[uint64]Result) Result {
+				handler = func(ctx context.Context, results map[uint64]Result) error {
 					assert.NoError(t, results[0].Err())
-					return Result{}
+					return nil
 				}
 			}
 			step := NewFanOutStep("fanout", func(_ context.Context, funcs chan *Pipeline) {
@@ -82,9 +82,9 @@ func TestNewFanOutStep_Cancel(t *testing.T) {
 			}
 		}
 		t.Fail() // should not reach this
-	}, func(ctx context.Context, results map[uint64]Result) Result {
+	}, func(ctx context.Context, results map[uint64]Result) error {
 		assert.Len(t, results, 3)
-		return NewResultWithError("fanout", fmt.Errorf("some error"))
+		return fmt.Errorf("some error")
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
@@ -112,13 +112,13 @@ func ExampleNewFanOutStep() {
 				}))
 			}
 		}
-	}, func(ctx context.Context, results map[uint64]Result) Result {
+	}, func(ctx context.Context, results map[uint64]Result) error {
 		for worker, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Worker %d failed: %v", worker, result.Err()))
 			}
 		}
-		return Result{}
+		return nil
 	})
 	p.AddStep(fanout)
 	p.Run()

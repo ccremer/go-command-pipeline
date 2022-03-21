@@ -10,15 +10,15 @@ type Predicate func(ctx context.Context) bool
 
 // ToStep wraps the given action func in its own step.
 // When the step's function is called, the given Predicate will evaluate whether the action should actually run.
-// It returns the action's Result, otherwise an empty (successful) Result struct.
+// It returns the action's Result, otherwise an empty (successful) Result.
 // The context.Context from the pipeline is passed through the given action.
-func ToStep(name string, action ActionFunc, predicate Predicate) Step {
+func ToStep(name string, action func(ctx context.Context) error, predicate Predicate) Step {
 	step := Step{Name: name}
 	step.F = func(ctx context.Context) Result {
 		if predicate(ctx) {
-			return action(ctx)
+			return newResultWithError(name, action(ctx))
 		}
-		return NewEmptyResult(name)
+		return newEmptyResult(name)
 	}
 	return step
 }
@@ -33,7 +33,7 @@ func ToNestedStep(name string, predicate Predicate, p *Pipeline) Step {
 		if predicate(ctx) {
 			return p.Run()
 		}
-		return NewEmptyResult(name)
+		return newEmptyResult(name)
 	}
 	return step
 }
@@ -46,7 +46,7 @@ func If(predicate Predicate, originalStep Step) Step {
 		if predicate(ctx) {
 			return originalStep.F(ctx)
 		}
-		return NewEmptyResult(originalStep.Name)
+		return newEmptyResult(originalStep.Name)
 	}
 	return wrappedStep
 }

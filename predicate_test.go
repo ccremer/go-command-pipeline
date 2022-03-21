@@ -58,9 +58,9 @@ func Test_Predicates(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := ToStep("name", func(_ context.Context) Result {
+			step := ToStep("name", func(_ context.Context) error {
 				counter += 1
-				return Result{}
+				return nil
 			}, tt.givenPredicate)
 			result := step.F(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
@@ -90,7 +90,7 @@ func TestToNestedStep(t *testing.T) {
 			counter = 0
 			p := NewPipeline().AddStep(NewStep("nested step", func(_ context.Context) Result {
 				counter++
-				return Result{}
+				return newEmptyResult("nested step")
 			}))
 			step := ToNestedStep("super step", tt.givenPredicate, p)
 			_ = step.F(nil)
@@ -120,7 +120,7 @@ func TestIf(t *testing.T) {
 			counter = 0
 			step := NewStep("step", func(_ context.Context) Result {
 				counter++
-				return Result{}
+				return newEmptyResult("step")
 			})
 			wrapped := If(tt.givenPredicate, step)
 			result := wrapped.F(nil)

@@ -36,7 +36,7 @@ func NewFanOutStep(name string, pipelineSupplier Supplier, handler ParallelResul
 		}
 		wg.Wait()
 		res := collectResults(ctx, handler, &m)
-		return setResultErrorFromContext(ctx, res)
+		return setResultErrorFromContext(ctx, name, res)
 	}
 	return step
 }
