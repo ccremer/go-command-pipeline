@@ -22,7 +22,7 @@ type Step struct {
 	// F is the ActionFunc assigned to a pipeline Step.
 	// This is required.
 	F ActionFunc
-	// H is the ResultHandler assigned to a pipeline Step.
+	// H is the ParallelResultHandler assigned to a pipeline Step.
 	// This is optional, and it will be called in any case if it is set after F completed.
 	// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
 	// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
@@ -110,7 +110,8 @@ func (p *Pipeline) Run() Result {
 func (p *Pipeline) RunWithContext(ctx context.Context) Result {
 	result := p.doRun(ctx)
 	if p.finalizer != nil {
-		result.err = p.finalizer(ctx, result)
+		err := p.finalizer(ctx, result)
+		return newResult(result.Name(), err, result.IsAborted(), result.IsCanceled())
 	}
 	return result
 }
@@ -131,7 +132,6 @@ func (p *Pipeline) doRun(ctx context.Context) Result {
 			result := step.F(ctx)
 			var err error
 			if step.H != nil {
-				result.name = step.Name
 				err = step.H(ctx, result)
 			} else {
 				err = result.Err()
@@ -139,13 +139,13 @@ func (p *Pipeline) doRun(ctx context.Context) Result {
 			if err != nil {
 				if errors.Is(err, ErrAbort) {
 					// Abort pipeline without error
-					return Result{aborted: true, name: step.Name}
+					return newResult(step.Name, nil, true, false)
 				}
 				return p.fail(err, step)
 			}
 		}
 	}
-	return Result{name: name}
+	return newEmptyResult(name)
 }
 
 func (p *Pipeline) fail(err error, step Step) Result {
@@ -156,5 +156,5 @@ func (p *Pipeline) fail(err error, step Step) Result {
 		resultErr = fmt.Errorf("step %q failed: %w", step.Name, err)
 	}
 	canceled := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-	return NewResult(step.Name, resultErr, false, canceled)
+	return newResult(step.Name, resultErr, false, canceled)
 }

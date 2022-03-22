@@ -1,4 +1,4 @@
-package parallel
+package pipeline
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	pipeline "github.com/ccremer/go-command-pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -39,16 +38,16 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				})
 				return
 			}
-			pipes := []*pipeline.Pipeline{
-				pipeline.NewPipeline().AddStep(pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
+			pipes := []*Pipeline{
+				NewPipeline().AddStep(NewStep("step", func(_ context.Context) Result {
 					atomic.AddUint64(&counts, 1)
-					return pipeline.NewResultWithError("step", tt.expectedError)
+					return newResultWithError("step", tt.expectedError)
 				})),
 			}
 			step := NewWorkerPoolStep("pool", 1, SupplierFromSlice(pipes),
-				func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
+				func(ctx context.Context, results map[uint64]Result) error {
 					assert.Error(t, results[0].Err())
-					return pipeline.NewResultWithError("pool", results[0].Err())
+					return results[0].Err()
 				})
 			result := step.F(context.Background())
 			assert.Error(t, result.Err())
@@ -59,16 +58,16 @@ func TestNewWorkerPoolStep(t *testing.T) {
 func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	var counts uint64
-	step := NewWorkerPoolStep("workerpool", 2, func(ctx context.Context, pipelines chan *pipeline.Pipeline) {
+	step := NewWorkerPoolStep("workerpool", 2, func(ctx context.Context, pipelines chan *Pipeline) {
 		defer close(pipelines)
 		for i := 0; i < 10000; i++ {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				pipelines <- pipeline.NewPipeline().WithSteps(
-					pipeline.NewStepFromFunc("noop", func(_ context.Context) error { return nil }),
-					pipeline.NewStepFromFunc("increase", func(_ context.Context) error {
+				pipelines <- NewPipeline().WithSteps(
+					NewStepFromFunc("noop", func(_ context.Context) error { return nil }),
+					NewStepFromFunc("increase", func(_ context.Context) error {
 						atomic.AddUint64(&counts, 1)
 						time.Sleep(10 * time.Millisecond)
 						return nil
@@ -76,7 +75,7 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			}
 		}
 		t.Fail() // should not reach this
-	}, func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
+	}, func(ctx context.Context, results map[uint64]Result) error {
 		require.Len(t, results, 9)
 		for r := uint64(0); r < 6; r++ {
 			// The first 6 jobs are successful
@@ -90,11 +89,11 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			assert.True(t, results[r].IsCanceled())
 			assert.EqualError(t, results[r].Err(), `step "noop" failed: context deadline exceeded`)
 		}
-		return pipeline.Result{}
+		return nil
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
-	result := pipeline.NewPipeline().WithSteps(step).RunWithContext(ctx)
+	result := NewPipeline().WithSteps(step).RunWithContext(ctx)
 	assert.Equal(t, 6, int(counts), "successful increments")
 	assert.True(t, result.IsCanceled(), "overall canceled flag")
 	assert.False(t, result.IsSuccessful(), "overall success flag")
@@ -102,8 +101,8 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 }
 
 func ExampleNewWorkerPoolStep() {
-	p := pipeline.NewPipeline()
-	pool := NewWorkerPoolStep("pool", 2, func(ctx context.Context, pipelines chan *pipeline.Pipeline) {
+	p := NewPipeline()
+	pool := NewWorkerPoolStep("pool", 2, func(ctx context.Context, pipelines chan *Pipeline) {
 		defer close(pipelines)
 		// create some pipelines
 		for i := 0; i < 3; i++ {
@@ -112,20 +111,20 @@ func ExampleNewWorkerPoolStep() {
 			case <-ctx.Done():
 				return // parent pipeline has been canceled, let's not create more pipelines.
 			default:
-				pipelines <- pipeline.NewPipeline().AddStep(pipeline.NewStepFromFunc(fmt.Sprintf("i = %d", n), func(_ context.Context) error {
+				pipelines <- NewPipeline().AddStep(NewStepFromFunc(fmt.Sprintf("i = %d", n), func(_ context.Context) error {
 					time.Sleep(time.Duration(n * 100000000)) // fake some load
 					fmt.Println(fmt.Sprintf("This is job item %d", n))
 					return nil
 				}))
 			}
 		}
-	}, func(ctx context.Context, results map[uint64]pipeline.Result) pipeline.Result {
+	}, func(ctx context.Context, results map[uint64]Result) error {
 		for jobIndex, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err()))
 			}
 		}
-		return pipeline.Result{}
+		return nil
 	})
 	p.AddStep(pool)
 	p.Run()

@@ -11,15 +11,14 @@ import (
 	"testing"
 
 	pipeline "github.com/ccremer/go-command-pipeline"
-	"github.com/ccremer/go-command-pipeline/predicate"
 )
 
 func TestExample_Git(t *testing.T) {
 	p := pipeline.NewPipeline()
 	p.WithSteps(
-		predicate.ToStep("clone repository", CloneGitRepository(), predicate.Not(DirExists("my-repo"))),
-		pipeline.NewStep("checkout branch", CheckoutBranch()),
-		pipeline.NewStep("pull", Pull()).WithResultHandler(logSuccess),
+		CloneGitRepository(),
+		CheckoutBranch(),
+		Pull().WithResultHandler(logSuccess),
 	)
 	result := p.Run()
 	if !result.IsSuccessful() {
@@ -28,29 +27,29 @@ func TestExample_Git(t *testing.T) {
 }
 
 func logSuccess(_ context.Context, result pipeline.Result) error {
-	log.Println("handler called")
+	log.Println("handler called", result.Name())
 	return result.Err()
 }
 
-func CloneGitRepository() pipeline.ActionFunc {
-	return func(_ context.Context) pipeline.Result {
+func CloneGitRepository() pipeline.Step {
+	return pipeline.ToStep("clone repository", func(_ context.Context) error {
 		err := execGitCommand("clone", "git@github.com/ccremer/go-command-pipeline")
-		return pipeline.NewResultWithError("clone repository", err)
-	}
+		return err
+	}, pipeline.Not(DirExists("my-repo")))
 }
 
-func Pull() pipeline.ActionFunc {
-	return func(_ context.Context) pipeline.Result {
+func Pull() pipeline.Step {
+	return pipeline.NewStepFromFunc("pull", func(_ context.Context) error {
 		err := execGitCommand("pull")
-		return pipeline.NewResultWithError("pull", err)
-	}
+		return err
+	})
 }
 
-func CheckoutBranch() pipeline.ActionFunc {
-	return func(_ context.Context) pipeline.Result {
+func CheckoutBranch() pipeline.Step {
+	return pipeline.NewStepFromFunc("checkout branch", func(_ context.Context) error {
 		err := execGitCommand("checkout", "master")
-		return pipeline.NewResultWithError("checkout branch", err)
-	}
+		return err
+	})
 }
 
 func execGitCommand(args ...string) error {
@@ -61,7 +60,7 @@ func execGitCommand(args ...string) error {
 	return err
 }
 
-func DirExists(path string) predicate.Predicate {
+func DirExists(path string) pipeline.Predicate {
 	return func(_ context.Context) bool {
 		if info, err := os.Stat(path); err != nil || !info.IsDir() {
 			return false

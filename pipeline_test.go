@@ -34,16 +34,16 @@ func TestPipeline_Run(t *testing.T) {
 			givenSteps: []Step{
 				NewStep("test-step", func(_ context.Context) Result {
 					callCount += 1
-					return Result{}
+					return newEmptyResult("test-step")
 				}),
 			},
 			expectedCalls: 1,
 		},
 		"GivenSingleStep_WhenBeforeHookGiven_ThenCallBeforeHook": {
 			givenSteps: []Step{
-				NewStep("test-step", func(_ context.Context) Result {
+				NewStepFromFunc("test-step", func(_ context.Context) error {
 					callCount += hook.calls + 1
-					return Result{}
+					return nil
 				}),
 			},
 			givenBeforeHook: hook.Accept,
@@ -58,9 +58,9 @@ func TestPipeline_Run(t *testing.T) {
 		},
 		"GivenSingleStepWithoutHandler_WhenRunningWithError_ThenReturnError": {
 			givenSteps: []Step{
-				NewStep("test-step", func(_ context.Context) Result {
+				NewStepFromFunc("test-step", func(_ context.Context) error {
 					callCount += 1
-					return Result{err: errors.New("step failed")}
+					return errors.New("step failed")
 				}),
 			},
 			expectedCalls:     1,
@@ -84,16 +84,16 @@ func TestPipeline_Run(t *testing.T) {
 		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
 			givenSteps: []Step{
-				NewStep("test-step", func(_ context.Context) Result {
+				NewStepFromFunc("test-step", func(_ context.Context) error {
 					callCount += 1
-					return Result{}
+					return nil
 				}).WithResultHandler(func(_ context.Context, result Result) error {
 					callCount += 1
 					return errors.New("handler")
 				}),
-				NewStep("don't run this step", func(_ context.Context) Result {
+				NewStepFromFunc("don't run this step", func(_ context.Context) error {
 					callCount += 1
-					return Result{}
+					return nil
 				}),
 			},
 			expectedCalls:     2,
@@ -101,30 +101,33 @@ func TestPipeline_Run(t *testing.T) {
 		},
 		"GivenSingleStepWithHandler_WhenNullifyingError_ThenContinuePipeline": {
 			givenSteps: []Step{
-				NewStep("test-step", func(_ context.Context) Result {
+				NewStepFromFunc("test-step", func(_ context.Context) error {
 					callCount += 1
-					return Result{err: errors.New("failed step")}
+					return errors.New("failed step")
 				}).WithResultHandler(func(_ context.Context, result Result) error {
 					callCount += 1
 					return nil
 				}),
-				NewStep("continue", func(_ context.Context) Result {
+				NewStepFromFunc("continue", func(_ context.Context) error {
 					callCount += 1
-					return Result{}
+					return nil
 				}),
+			},
+			additionalAssertions: func(t *testing.T, result Result) {
+				assert.True(t, result.IsSuccessful())
 			},
 			expectedCalls: 3,
 		},
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell": {
 			givenSteps: []Step{
-				NewStep("test-step", func(_ context.Context) Result {
+				NewStepFromFunc("test-step", func(_ context.Context) error {
 					callCount += 1
-					return Result{}
+					return nil
 				}),
 				NewPipeline().
-					AddStep(NewStep("nested-step", func(_ context.Context) Result {
+					AddStep(NewStepFromFunc("nested-step", func(_ context.Context) error {
 						callCount += 1
-						return Result{}
+						return nil
 					})).AsNestedStep("nested-pipeline"),
 			},
 			expectedCalls: 2,
@@ -133,9 +136,9 @@ func TestPipeline_Run(t *testing.T) {
 			givenSteps: []Step{
 				NewPipeline().
 					WithNestedSteps("nested-pipeline",
-						NewStep("nested-step", func(_ context.Context) Result {
+						NewStepFromFunc("nested-step", func(_ context.Context) error {
 							callCount += 1
-							return Result{}
+							return nil
 						})),
 			},
 			expectedCalls: 1,
@@ -157,7 +160,7 @@ func TestPipeline_Run(t *testing.T) {
 				assert.Contains(t, actualResult.Err().Error(), tt.expectErrorString)
 			} else {
 				assert.NoError(t, actualResult.Err())
-				assert.True(t, actualResult.IsSuccessful())
+				assert.True(t, actualResult.IsCompleted())
 			}
 			assert.Equal(t, tt.expectedCalls, callCount)
 			if tt.additionalAssertions != nil {

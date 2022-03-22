@@ -1,10 +1,9 @@
-package predicate
+package pipeline
 
 import (
 	"context"
 	"testing"
 
-	pipeline "github.com/ccremer/go-command-pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -59,9 +58,9 @@ func Test_Predicates(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := ToStep("name", func(_ context.Context) pipeline.Result {
+			step := ToStep("name", func(_ context.Context) error {
 				counter += 1
-				return pipeline.Result{}
+				return nil
 			}, tt.givenPredicate)
 			result := step.F(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
@@ -89,9 +88,9 @@ func TestToNestedStep(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			p := pipeline.NewPipeline().AddStep(pipeline.NewStep("nested step", func(_ context.Context) pipeline.Result {
+			p := NewPipeline().AddStep(NewStep("nested step", func(_ context.Context) Result {
 				counter++
-				return pipeline.Result{}
+				return newEmptyResult("nested step")
 			}))
 			step := ToNestedStep("super step", tt.givenPredicate, p)
 			_ = step.F(nil)
@@ -119,9 +118,9 @@ func TestIf(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := pipeline.NewStep("step", func(_ context.Context) pipeline.Result {
+			step := NewStep("step", func(_ context.Context) Result {
 				counter++
-				return pipeline.Result{}
+				return newEmptyResult("step")
 			})
 			wrapped := If(tt.givenPredicate, step)
 			result := wrapped.F(nil)
@@ -135,8 +134,8 @@ func TestIf(t *testing.T) {
 func TestBoolPtr(t *testing.T) {
 	called := false
 	b := false
-	p := pipeline.NewPipeline().WithSteps(
-		If(BoolPtr(&b), pipeline.NewStepFromFunc("boolptr", func(_ context.Context) error {
+	p := NewPipeline().WithSteps(
+		If(BoolPtr(&b), NewStepFromFunc("boolptr", func(_ context.Context) error {
 			called = true
 			return nil
 		})),

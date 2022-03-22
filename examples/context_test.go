@@ -22,7 +22,7 @@ func TestExample_Context(t *testing.T) {
 	// Create pipeline with defaults
 	p := pipeline.NewPipeline()
 	p.WithSteps(
-		pipeline.NewStep("define random number", defineNumber),
+		pipeline.NewStepFromFunc("define random number", defineNumber),
 		pipeline.NewStepFromFunc("print number", printNumber),
 	)
 	result := p.RunWithContext(context.WithValue(context.Background(), key, &Data{}))
@@ -31,9 +31,9 @@ func TestExample_Context(t *testing.T) {
 	}
 }
 
-func defineNumber(ctx context.Context) pipeline.Result {
+func defineNumber(ctx context.Context) error {
 	ctx.Value(key).(*Data).Number = rand.Int()
-	return pipeline.Result{}
+	return nil
 }
 
 func printNumber(ctx context.Context) error {
