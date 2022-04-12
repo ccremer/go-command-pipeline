@@ -171,18 +171,17 @@ func TestPipeline_Run(t *testing.T) {
 }
 
 func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
-	p := NewPipeline().WithSteps(
-		NewStepFromFunc("long running", func(ctx context.Context) error {
-			for {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-					// doing nothing
-				}
+	p := NewPipeline().AddStepFromFunc("long running", func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				// doing nothing
 			}
-		}),
-	)
+		}
+	})
+
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	go func() {
 		time.Sleep(5 * time.Millisecond)
