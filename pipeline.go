@@ -64,6 +64,11 @@ func (p *Pipeline) AddStep(step Step) *Pipeline {
 	return p
 }
 
+// AddStepFromFunc appends the given function to the Pipeline at the end and returns itself.
+func (p *Pipeline) AddStepFromFunc(name string, fn func(ctx context.Context) error) *Pipeline {
+	return p.AddStep(NewStepFromFunc(name, fn))
+}
+
 // WithSteps appends the given array of steps to the Pipeline at the end and returns itself.
 func (p *Pipeline) WithSteps(steps ...Step) *Pipeline {
 	p.steps = steps
