@@ -34,11 +34,11 @@ func TestContext(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx := VariableContext(context.Background())
+			ctx := MutableContext(context.Background())
 			if tc.givenKey != nil {
-				AddToContext(ctx, tc.givenKey, tc.givenValue)
+				StoreInContext(ctx, tc.givenKey, tc.givenValue)
 			}
-			result, found := ValueFromContext(ctx, tc.givenKey)
+			result, found := LoadFromContext(ctx, tc.givenKey)
 			assert.Equal(t, tc.expectedValue, result, "value")
 			assert.Equal(t, tc.expectedFound, found, "value found")
 		})
@@ -46,23 +46,31 @@ func TestContext(t *testing.T) {
 }
 
 func TestContextPanics(t *testing.T) {
-	assert.PanicsWithError(t, "context was not set up with VariableContext()", func() {
-		AddToContext(context.Background(), "key", "value")
-	}, "AddToContext")
-	assert.PanicsWithError(t, "context was not set up with VariableContext()", func() {
-		ValueFromContext(context.Background(), "key")
-	}, "ValueFromContext")
+	assert.PanicsWithError(t, "context was not set up with MutableContext()", func() {
+		StoreInContext(context.Background(), "key", "value")
+	}, "StoreInContext")
+	assert.PanicsWithError(t, "context was not set up with MutableContext()", func() {
+		LoadFromContext(context.Background(), "key")
+	}, "LoadFromContext")
 }
 
-func ExampleVariableContext() {
-	ctx := VariableContext(context.Background())
+func TestMutableContextRepeated(t *testing.T) {
+	parent := context.Background()
+	result := MutableContext(parent)
+	assert.NotEqual(t, parent, result)
+	repeated := MutableContext(result)
+	assert.Equal(t, result, repeated)
+}
+
+func ExampleMutableContext() {
+	ctx := MutableContext(context.Background())
 	p := NewPipeline().WithSteps(
 		NewStepFromFunc("store value", func(ctx context.Context) error {
-			AddToContext(ctx, "key", "value")
+			StoreInContext(ctx, "key", "value")
 			return nil
 		}),
 		NewStepFromFunc("retrieve value", func(ctx context.Context) error {
-			value, _ := ValueFromContext(ctx, "key")
+			value, _ := LoadFromContext(ctx, "key")
 			fmt.Println(value)
 			return nil
 		}),
