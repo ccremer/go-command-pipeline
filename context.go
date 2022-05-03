@@ -36,7 +36,7 @@ func StoreInContext(ctx context.Context, key, value interface{}) {
 
 // LoadFromContext returns the value from the given context with the given key.
 // It returns the value and true, or nil and false if the key doesn't exist.
-// It may return nil and true if the key exists, but the value actually is nil.
+// It returns nil and true if the key exists and the value actually is nil.
 // Use StoreInContext to store values.
 //
 // Note: This method is thread-safe, but panics if the ctx has not been set up with MutableContext first.
@@ -48,4 +48,15 @@ func LoadFromContext(ctx context.Context, key interface{}) (interface{}, bool) {
 	mp := m.(*sync.Map)
 	val, found := mp.Load(key)
 	return val, found
+}
+
+// MustLoadFromContext is similar to LoadFromContext, except it doesn't return a bool to indicate whether the key exists.
+// It returns nil if either the key doesn't exist, or if the value of the key is nil.
+// Use StoreInContext to store values.
+//
+// Note: This is a convenience method for cases when it's not relevant whether the key is existing or not.
+// Note: This method is thread-safe, but panics if the ctx has not been set up with MutableContext first.
+func MustLoadFromContext(ctx context.Context, key interface{}) interface{} {
+	val, _ := LoadFromContext(ctx, key)
+	return val
 }
