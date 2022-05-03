@@ -62,6 +62,26 @@ func TestMutableContextRepeated(t *testing.T) {
 	assert.Equal(t, result, repeated)
 }
 
+func TestMustLoadFromContext(t *testing.T) {
+	t.Run("KeyExistsWithNil", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		StoreInContext(ctx, "key", nil)
+		result := MustLoadFromContext(ctx, "key")
+		assert.Nil(t, result)
+	})
+	t.Run("KeyDoesntExist", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		result := MustLoadFromContext(ctx, "key")
+		assert.Nil(t, result)
+	})
+	t.Run("KeyExistsWithValue", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		StoreInContext(ctx, "key", "value")
+		result := MustLoadFromContext(ctx, "key")
+		assert.Equal(t, "value", result)
+	})
+}
+
 func ExampleMutableContext() {
 	ctx := MutableContext(context.Background())
 	p := NewPipeline().WithSteps(
