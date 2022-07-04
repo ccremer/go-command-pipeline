@@ -131,6 +131,41 @@ func TestIf(t *testing.T) {
 	}
 }
 
+func TestIfOrElse(t *testing.T) {
+	counter := 0
+	tests := map[string]struct {
+		givenPredicate Predicate
+		expectedCalls  int
+	}{
+		"GivenWrappedStep_WhenPredicateEvalsTrue_ThenRunMainAction": {
+			givenPredicate: truePredicate(&counter),
+			expectedCalls:  2,
+		},
+		"GivenWrappedStep_WhenPredicateEvalsFalse_ThenRunAlternativeAction": {
+			givenPredicate: falsePredicate(&counter),
+			expectedCalls:  -2,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			counter = 0
+			trueStep := NewStep("true", func(_ context.Context) Result {
+				counter++
+				return newEmptyResult("true")
+			})
+			falseStep := NewStep("false", func(ctx context.Context) Result {
+				counter--
+				return newEmptyResult("false")
+			})
+			wrapped := IfOrElse(tt.givenPredicate, trueStep, falseStep)
+			result := wrapped.F(nil)
+			require.NoError(t, result.Err())
+			assert.Equal(t, tt.expectedCalls, counter)
+			assert.Equal(t, trueStep.Name, wrapped.Name)
+		})
+	}
+}
 func TestBoolPtr(t *testing.T) {
 	called := false
 	b := false
