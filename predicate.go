@@ -51,6 +51,21 @@ func If(predicate Predicate, originalStep Step) Step {
 	return wrappedStep
 }
 
+// IfOrElse returns a new step that wraps the given steps and executes its action based on the given Predicate.
+// The name of the step is taken from `trueStep`.
+// The context.Context from the pipeline is passed through the given actions.
+func IfOrElse(predicate Predicate, trueStep Step, falseStep Step) Step {
+	wrappedStep := Step{Name: trueStep.Name}
+	wrappedStep.F = func(ctx context.Context) Result {
+		if predicate(ctx) {
+			return trueStep.F(ctx)
+		} else {
+			return falseStep.F(ctx)
+		}
+	}
+	return wrappedStep
+}
+
 // Bool returns a Predicate that simply returns v when evaluated.
 // Use BoolPtr() over Bool() if the value can change between setting up the pipeline and evaluating the predicate.
 func Bool(v bool) Predicate {
