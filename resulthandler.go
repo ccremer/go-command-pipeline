@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 )
@@ -29,9 +28,9 @@ func setResultErrorFromContext(ctx context.Context, name string, err error) Resu
 	if ctx.Err() != nil {
 		if err != nil {
 			wrapped := fmt.Errorf("%w, collection error: %v", ctx.Err(), err)
-			return newResult(name, wrapped, errors.Is(err, ErrAbort), true)
+			return newResult(name, wrapped, true)
 		}
-		return newResult(name, ctx.Err(), errors.Is(err, ErrAbort), true)
+		return newResult(name, ctx.Err(), true)
 	}
 	return newResultWithError(name, err)
 }
