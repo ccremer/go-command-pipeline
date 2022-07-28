@@ -66,22 +66,6 @@ func TestPipeline_Run(t *testing.T) {
 			expectedCalls:     1,
 			expectErrorString: "step failed",
 		},
-		"GivenStepWithErrAbort_WhenRunningWithErrAbort_ThenDoNotExecuteNextSteps": {
-			givenSteps: []Step{
-				NewStepFromFunc("test-step", func(_ context.Context) error {
-					callCount += 1
-					return ErrAbort
-				}),
-				NewStepFromFunc("step-should-not-execute", func(_ context.Context) error {
-					callCount += 1
-					return errors.New("should not execute")
-				}),
-			},
-			expectedCalls: 1,
-			additionalAssertions: func(t *testing.T, result Result) {
-				assert.True(t, result.IsAborted())
-			},
-		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
 			givenSteps: []Step{
 				NewStepFromFunc("test-step", func(_ context.Context) error {
@@ -160,7 +144,7 @@ func TestPipeline_Run(t *testing.T) {
 				assert.Contains(t, actualResult.Err().Error(), tt.expectErrorString)
 			} else {
 				assert.NoError(t, actualResult.Err())
-				assert.True(t, actualResult.IsCompleted())
+				assert.True(t, actualResult.IsSuccessful())
 			}
 			assert.Equal(t, tt.expectedCalls, callCount)
 			if tt.additionalAssertions != nil {
