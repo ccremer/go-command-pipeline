@@ -12,14 +12,14 @@ import (
 // Use
 //  select { case <-ctx.Done(): return, default: pipelinesChan <- ... }
 // to cancel the supply, otherwise you may leak an orphaned goroutine.
-type Supplier func(ctx context.Context, pipelinesChan chan *Pipeline)
+type Supplier[T context.Context] func(ctx T, pipelinesChan chan *Pipeline[T])
 
 // SupplierFromSlice returns a Supplier that accepts the given slice of Pipeline and iterates over it to feed the channel.
 //
 // Context cancellation is only effective if the channel is limited in size.
 // All pipelines may get executed even if the parent pipeline has been canceled, unless each child Pipeline listens for context.Done() in their steps.
-func SupplierFromSlice(pipelines []*Pipeline) Supplier {
-	return func(ctx context.Context, pipelinesChan chan *Pipeline) {
+func SupplierFromSlice[T context.Context](pipelines []*Pipeline[T]) Supplier[T] {
+	return func(ctx T, pipelinesChan chan *Pipeline[T]) {
 		defer close(pipelinesChan)
 		for _, pipe := range pipelines {
 			select {

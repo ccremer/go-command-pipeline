@@ -10,14 +10,14 @@ import (
 
 func TestPipeline_WithOptions(t *testing.T) {
 	t.Run("DisableErrorWrapping", func(t *testing.T) {
-		p := NewPipeline().WithOptions(DisableErrorWrapping)
+		p := NewPipeline[*PipelineContext]().WithOptions(DisableErrorWrapping)
 		p.WithSteps(
-			NewStepFromFunc("disabled error wrapping", func(_ context.Context) error {
+			NewStep[*PipelineContext]("disabled error wrapping", func(_ *PipelineContext) error {
 				return errors.New("some error")
 			}),
 		)
 		assert.True(t, p.options.disableErrorWrapping)
-		result := p.Run()
+		result := p.RunWithContext(&PipelineContext{Context: context.Background()})
 		assert.Equal(t, "some error", result.Err().Error())
 	})
 }

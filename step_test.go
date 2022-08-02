@@ -25,7 +25,7 @@ func TestStep_WithErrorHandler(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			executed := false
-			s := NewStepFromFunc("test", func(_ context.Context) error {
+			s := NewStep("test", func(_ context.Context) error {
 				return nil
 			}).WithErrorHandler(func(_ context.Context, err error) error {
 				executed = true

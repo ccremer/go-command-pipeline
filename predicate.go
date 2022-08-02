@@ -12,9 +12,9 @@ type Predicate func(ctx context.Context) bool
 // When the step's function is called, the given Predicate will evaluate whether the action should actually run.
 // It returns the action's Result, otherwise an empty (successful) Result.
 // The context.Context from the pipeline is passed through the given action.
-func ToStep(name string, action func(ctx context.Context) error, predicate Predicate) Step {
-	step := Step{Name: name}
-	step.F = func(ctx context.Context) Result {
+func ToStep[T context.Context](name string, action ActionFunc[T], predicate Predicate) Step[T] {
+	step := Step[T]{Name: name}
+	step.F = func(ctx T) error {
 		if predicate(ctx) {
 			return newResultWithError(name, action(ctx))
 		}
@@ -27,11 +27,11 @@ func ToStep(name string, action func(ctx context.Context) error, predicate Predi
 // When the step's function is called, the given Predicate will evaluate whether the nested Pipeline should actually run.
 // It returns the pipeline's Result, otherwise an empty (successful) Result struct.
 // The given pipeline has to define its own context.Context, it's not passed "down".
-func ToNestedStep(name string, predicate Predicate, p *Pipeline) Step {
-	step := Step{Name: name}
-	step.F = func(ctx context.Context) Result {
+func ToNestedStep[T context.Context](name string, predicate Predicate, p *Pipeline[T]) Step[T] {
+	step := Step[T]{Name: name}
+	step.F = func(ctx T) error {
 		if predicate(ctx) {
-			return p.Run()
+			return p.RunWithContext(ctx)
 		}
 		return newEmptyResult(name)
 	}
@@ -40,9 +40,9 @@ func ToNestedStep(name string, predicate Predicate, p *Pipeline) Step {
 
 // If returns a new step that wraps the given step and executes its action only if the given Predicate evaluates true.
 // The context.Context from the pipeline is passed through the given action.
-func If(predicate Predicate, originalStep Step) Step {
-	wrappedStep := Step{Name: originalStep.Name}
-	wrappedStep.F = func(ctx context.Context) Result {
+func If[T context.Context](predicate Predicate, originalStep Step[T]) Step[T] {
+	wrappedStep := Step[T]{Name: originalStep.Name}
+	wrappedStep.F = func(ctx T) error {
 		if predicate(ctx) {
 			return originalStep.F(ctx)
 		}
@@ -54,9 +54,9 @@ func If(predicate Predicate, originalStep Step) Step {
 // IfOrElse returns a new step that wraps the given steps and executes its action based on the given Predicate.
 // The name of the step is taken from `trueStep`.
 // The context.Context from the pipeline is passed through the given actions.
-func IfOrElse(predicate Predicate, trueStep Step, falseStep Step) Step {
-	wrappedStep := Step{Name: trueStep.Name}
-	wrappedStep.F = func(ctx context.Context) Result {
+func IfOrElse[T context.Context](predicate Predicate, trueStep Step[T], falseStep Step[T]) Step[T] {
+	wrappedStep := Step[T]{Name: trueStep.Name}
+	wrappedStep.F = func(ctx T) error {
 		if predicate(ctx) {
 			return trueStep.F(ctx)
 		} else {
