@@ -22,6 +22,6 @@ func (p *Pipeline[T]) WithOptions(options ...Option[T]) *Pipeline[T] {
 
 // DisableErrorWrapping disables the wrapping of errors that are emitted from pipeline steps.
 // This effectively causes Result.Err to be exactly the error as returned from a step.
-var DisableErrorWrapping Option = func(pipeline *Pipeline[context.Context]) {
+var DisableErrorWrapping Option[context.Context] = func(pipeline *Pipeline[context.Context]) {
 	pipeline.options.disableErrorWrapping = true
 }

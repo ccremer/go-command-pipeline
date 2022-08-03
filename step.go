@@ -10,14 +10,8 @@ func NewStep[T context.Context](name string, action ActionFunc[T]) Step[T] {
 	}
 }
 
-// WithErrorHandler wraps given errorHandler and sets the ResultHandler of this specific step and returns the step itself.
-// The difference to WithResultHandler is that errorHandler only gets called if Result.Err is non-nil.
-func (s Step[T]) WithErrorHandler(errorHandler func(ctx T, err error) error) Step[T] {
-	s.Handler = func(ctx T, result Result) error {
-		if result.IsFailed() {
-			return errorHandler(ctx, result.Err())
-		}
-		return nil
-	}
+// WithErrorHandler sets the ErrorHandler of this specific step and returns the step itself.
+func (s Step[T]) WithErrorHandler(errorHandler ErrorHandler[T]) Step[T] {
+	s.Handler = errorHandler
 	return s
 }

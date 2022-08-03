@@ -34,7 +34,7 @@ func TestPipeline_Run(t *testing.T) {
 			givenSteps: []Step[*testContext]{
 				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
-					return newEmptyResult("test-step")
+					return nil
 				}),
 			},
 			expectedCalls: 1,
@@ -71,7 +71,7 @@ func TestPipeline_Run(t *testing.T) {
 				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
 					return nil
-				}).WithResultHandler(func(_ *testContext, result Result) error {
+				}).WithErrorHandler(func(_ *testContext, _ error) error {
 					callCount += 1
 					return errors.New("handler")
 				}),
@@ -88,7 +88,7 @@ func TestPipeline_Run(t *testing.T) {
 				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
 					return errors.New("failed step")
-				}).WithResultHandler(func(_ *testContext, result Result) error {
+				}).WithErrorHandler(func(_ *testContext, _ error) error {
 					callCount += 1
 					return nil
 				}),

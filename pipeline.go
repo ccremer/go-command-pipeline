@@ -22,10 +22,10 @@ type Step[T context.Context] struct {
 	// Action is the ActionFunc assigned to a pipeline Step.
 	// This is required.
 	Action ActionFunc[T]
-	// Handler is the ParallelResultHandler assigned to a pipeline Step.
+	// Handler is the ErrorHandler assigned to a pipeline Step.
 	// This is optional, and it will be called in any case if it is set after Action completed.
 	// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
-	// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
+	// The function may return nil even if the given error is non-nil, in which case the pipeline will continue.
 	// This function is called before the next step's Action is invoked.
 	Handler ErrorHandler[T]
 }

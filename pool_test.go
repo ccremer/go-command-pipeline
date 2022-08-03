@@ -34,7 +34,7 @@ func TestNewWorkerPoolStep(t *testing.T) {
 			counts = 0
 			if tt.expectPanic {
 				assert.Panics(t, func() {
-					NewWorkerPoolStep("pool", 0, nil, nil)
+					NewWorkerPoolStep[context.Context]("pool", 0, nil, nil)
 				})
 				return
 			}
@@ -45,9 +45,9 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				})),
 			}
 			step := NewWorkerPoolStep("pool", 1, SupplierFromSlice(pipes),
-				func(ctx *testContext, results map[uint64]Result) error {
-					assert.Error(t, results[0].Err())
-					return results[0].Err()
+				func(ctx *testContext, results map[uint64]error) error {
+					assert.Error(t, results[0])
+					return results[0]
 				})
 			ctx := &testContext{Context: context.Background()}
 			result := step.Action(ctx)
@@ -77,19 +77,29 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			}
 		}
 		t.Fail() // should not reach this
-	}, func(ctx *testContext, results map[uint64]Result) error {
+	}, func(ctx *testContext, results map[uint64]error) error {
 		require.Len(t, results, 9)
 		for r := uint64(0); r < 6; r++ {
+			var result Result
 			// The first 6 jobs are successful
-			assert.Equal(t, "increase", results[r].Name())
-			assert.False(t, results[r].IsCanceled())
-			assert.NoError(t, results[r].Err())
+			if errors.As(results[r], &result) {
+				assert.Equal(t, "increase", result.Name())
+				assert.False(t, result.IsCanceled())
+				assert.NoError(t, result.Err())
+			} else {
+				require.Fail(t, "errors are not of type Result")
+			}
 		}
 		for r := uint64(6); r < 9; r++ {
-			// remaining jobs were cancelled
-			assert.Equal(t, "noop", results[r].Name())
-			assert.True(t, results[r].IsCanceled())
-			assert.EqualError(t, results[r].Err(), `step "noop" failed: context deadline exceeded`)
+			var result Result
+			if errors.As(results[r], &result) {
+				// remaining jobs were cancelled
+				assert.Equal(t, "noop", result.Name())
+				assert.True(t, result.IsCanceled())
+				assert.EqualError(t, result.Err(), `step "noop" failed: context deadline exceeded`)
+			} else {
+				require.Fail(t, "errors are not of type Result")
+			}
 		}
 		return nil
 	})
@@ -122,9 +132,10 @@ func ExampleNewWorkerPoolStep() {
 				}))
 			}
 		}
-	}, func(ctx *testContext, results map[uint64]Result) error {
-		for jobIndex, result := range results {
-			if result.IsFailed() {
+	}, func(ctx *testContext, results map[uint64]error) error {
+		for jobIndex, err := range results {
+			var result Result
+			if errors.As(err, &result) {
 				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err()))
 			}
 		}

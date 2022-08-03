@@ -21,13 +21,6 @@ type resultImpl struct {
 	canceled bool
 }
 
-// newEmptyResult returns a Result with just the name.
-func newEmptyResult(stepName string) Result {
-	return resultImpl{
-		name: stepName,
-	}
-}
-
 // newResult is the constructor for all properties.
 func newResult(stepName string, err error, canceled bool) Result {
 	return resultImpl{

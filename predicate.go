@@ -18,7 +18,7 @@ func ToStep[T context.Context](name string, action ActionFunc[T], predicate Pred
 		if predicate(ctx) {
 			return newResultWithError(name, action(ctx))
 		}
-		return newEmptyResult(name)
+		return nil
 	}
 	return step
 }
@@ -33,7 +33,7 @@ func ToNestedStep[T context.Context](name string, predicate Predicate, p *Pipeli
 		if predicate(ctx) {
 			return p.RunWithContext(ctx)
 		}
-		return newEmptyResult(name)
+		return nil
 	}
 	return step
 }
@@ -46,7 +46,7 @@ func If[T context.Context](predicate Predicate, originalStep Step[T]) Step[T] {
 		if predicate(ctx) {
 			return originalStep.Action(ctx)
 		}
-		return newEmptyResult(originalStep.Name)
+		return nil
 	}
 	return wrappedStep
 }
