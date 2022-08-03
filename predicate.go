@@ -14,7 +14,7 @@ type Predicate func(ctx context.Context) bool
 // The context.Context from the pipeline is passed through the given action.
 func ToStep[T context.Context](name string, action ActionFunc[T], predicate Predicate) Step[T] {
 	step := Step[T]{Name: name}
-	step.F = func(ctx T) error {
+	step.Action = func(ctx T) error {
 		if predicate(ctx) {
 			return newResultWithError(name, action(ctx))
 		}
@@ -29,7 +29,7 @@ func ToStep[T context.Context](name string, action ActionFunc[T], predicate Pred
 // The given pipeline has to define its own context.Context, it's not passed "down".
 func ToNestedStep[T context.Context](name string, predicate Predicate, p *Pipeline[T]) Step[T] {
 	step := Step[T]{Name: name}
-	step.F = func(ctx T) error {
+	step.Action = func(ctx T) error {
 		if predicate(ctx) {
 			return p.RunWithContext(ctx)
 		}
@@ -42,9 +42,9 @@ func ToNestedStep[T context.Context](name string, predicate Predicate, p *Pipeli
 // The context.Context from the pipeline is passed through the given action.
 func If[T context.Context](predicate Predicate, originalStep Step[T]) Step[T] {
 	wrappedStep := Step[T]{Name: originalStep.Name}
-	wrappedStep.F = func(ctx T) error {
+	wrappedStep.Action = func(ctx T) error {
 		if predicate(ctx) {
-			return originalStep.F(ctx)
+			return originalStep.Action(ctx)
 		}
 		return newEmptyResult(originalStep.Name)
 	}
@@ -56,11 +56,11 @@ func If[T context.Context](predicate Predicate, originalStep Step[T]) Step[T] {
 // The context.Context from the pipeline is passed through the given actions.
 func IfOrElse[T context.Context](predicate Predicate, trueStep Step[T], falseStep Step[T]) Step[T] {
 	wrappedStep := Step[T]{Name: trueStep.Name}
-	wrappedStep.F = func(ctx T) error {
+	wrappedStep.Action = func(ctx T) error {
 		if predicate(ctx) {
-			return trueStep.F(ctx)
+			return trueStep.Action(ctx)
 		} else {
-			return falseStep.F(ctx)
+			return falseStep.Action(ctx)
 		}
 	}
 	return wrappedStep

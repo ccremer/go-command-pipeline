@@ -57,7 +57,7 @@ func TestNewFanOutStep(t *testing.T) {
 					}))
 				}
 			}, handler)
-			result := step.F(context.Background())
+			result := step.Action(context.Background())
 			assert.NoError(t, result.Err())
 			assert.Equal(t, tt.expectedCounts, int(counts))
 		})

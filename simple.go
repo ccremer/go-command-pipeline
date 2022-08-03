@@ -16,7 +16,7 @@ func NewAnonymous(funcs ...func(ctx context.Context) error) *Pipeline {
 	steps := make([]Step, len(funcs))
 	for i := 0; i < len(funcs); i++ {
 		fn := funcs[i]
-		steps[i] = NewStepFromFunc(getFunctionName(fn), func(ctx context.Context) error {
+		steps[i] = NewStep(getFunctionName(fn), func(ctx context.Context) error {
 			return fn(ctx)
 		})
 	}

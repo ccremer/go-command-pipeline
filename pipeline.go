@@ -19,15 +19,15 @@ type Step[T context.Context] struct {
 	// Name describes the step's human-readable name.
 	// It has no other uses other than easily identifying a step for debugging or logging.
 	Name string
-	// F is the ActionFunc assigned to a pipeline Step.
+	// Action is the ActionFunc assigned to a pipeline Step.
 	// This is required.
-	F ActionFunc[T]
-	// H is the ParallelResultHandler assigned to a pipeline Step.
-	// This is optional, and it will be called in any case if it is set after F completed.
+	Action ActionFunc[T]
+	// Handler is the ParallelResultHandler assigned to a pipeline Step.
+	// This is optional, and it will be called in any case if it is set after Action completed.
 	// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
 	// The function may return nil even if the Result contains an error, in which case the pipeline will continue.
-	// This function is called before the next step's F is invoked.
-	H ErrorHandler[T]
+	// This function is called before the next step's Action is invoked.
+	Handler ErrorHandler[T]
 }
 
 // Listener is a simple func that listens to Pipeline events.
@@ -48,17 +48,11 @@ func NewPipeline[T context.Context]() *Pipeline[T] {
 }
 
 // WithBeforeHooks takes a list of listeners.
-// Each Listener.Accept is called once in the given order just before the ActionFunc is invoked.
+// Each Listener is called once in the given order just before the ActionFunc is invoked.
 // The listeners should return as fast as possible, as they are not intended to do actual business logic.
-func (p *Pipeline[T]) WithBeforeHooks(listeners []Listener[T]) *Pipeline[T] {
+func (p *Pipeline[T]) WithBeforeHooks(listeners ...Listener[T]) *Pipeline[T] {
 	p.beforeHooks = listeners
 	return p
-}
-
-// AddBeforeHook adds the given listener to the list of hooks.
-// See WithBeforeHooks.
-func (p *Pipeline[T]) AddBeforeHook(listener Listener[T]) *Pipeline[T] {
-	return p.WithBeforeHooks(append(p.beforeHooks, listener))
 }
 
 // AddStep appends the given step to the Pipeline at the end and returns itself.
@@ -107,17 +101,11 @@ func (p *Pipeline[T]) NewStep(name string, action ActionFunc[T]) Step[T] {
 	return NewStep[T](name, action)
 }
 
-type PipelineContext struct {
-	context.Context
-
-	Variable bool
-}
-
 // RunWithContext executes the Pipeline.
 // Steps are executed sequentially as they were added to the Pipeline.
 // If a Step returns a non-nil error, the Pipeline is aborted and its Result contains the affected step's error.
 // Upon cancellation of the context, the pipeline does not terminate a currently running step, instead it skips the remaining steps in the execution order.
-// The context is passed to each Step.F and each Step may need to listen to the context cancellation event to truly cancel a long-running step.
+// The context is passed to each Step.Action and each Step may need to listen to the context cancellation event to truly cancel a long-running step.
 // If the pipeline gets canceled, Result.IsCanceled returns true and Result.Err contains the context's error.
 func (p *Pipeline[T]) RunWithContext(ctx T) Result {
 	result := p.doRun(ctx)
@@ -129,9 +117,7 @@ func (p *Pipeline[T]) RunWithContext(ctx T) Result {
 }
 
 func (p *Pipeline[T]) doRun(ctx T) Result {
-	name := ""
 	for _, step := range p.steps {
-		name = step.Name
 		select {
 		case <-ctx.Done():
 			result := p.fail(ctx.Err(), step)
@@ -141,10 +127,10 @@ func (p *Pipeline[T]) doRun(ctx T) Result {
 				hooks(step)
 			}
 
-			result := step.F(ctx)
+			result := step.Action(ctx)
 			var err error
-			if step.H != nil {
-				err = step.H(ctx, result)
+			if step.Handler != nil {
+				err = step.Handler(ctx, result)
 			} else {
 				err = result
 			}
@@ -153,7 +139,7 @@ func (p *Pipeline[T]) doRun(ctx T) Result {
 			}
 		}
 	}
-	return newEmptyResult(name)
+	return nil
 }
 
 func (p *Pipeline[T]) fail(err error, step Step[T]) Result {

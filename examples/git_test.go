@@ -12,14 +12,18 @@ import (
 	pipeline "github.com/ccremer/go-command-pipeline"
 )
 
+type GitContext struct {
+	context.Context
+}
+
 func TestExample_Git(t *testing.T) {
-	p := pipeline.NewPipeline()
+	p := pipeline.NewPipeline[context.Context]()
 	p.WithSteps(
 		CloneGitRepository(),
 		CheckoutBranch(),
 		Pull().WithResultHandler(logSuccess),
 	)
-	result := p.Run()
+	result := p.RunWithContext(&GitContext{context.Background()})
 	if !result.IsSuccessful() {
 		t.Fatal(result.Err())
 	}

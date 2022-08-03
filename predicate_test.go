@@ -62,7 +62,7 @@ func Test_Predicates(t *testing.T) {
 				counter += 1
 				return nil
 			}, tt.givenPredicate)
-			result := step.F(nil)
+			result := step.Action(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
 			assert.NoError(t, result.Err())
 		})
@@ -93,7 +93,7 @@ func TestToNestedStep(t *testing.T) {
 				return newEmptyResult("nested step")
 			}))
 			step := ToNestedStep("super step", tt.givenPredicate, p)
-			_ = step.F(nil)
+			_ = step.Action(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
 		})
 	}
@@ -123,7 +123,7 @@ func TestIf(t *testing.T) {
 				return newEmptyResult("step")
 			})
 			wrapped := If(tt.givenPredicate, step)
-			result := wrapped.F(nil)
+			result := wrapped.Action(nil)
 			require.NoError(t, result.Err())
 			assert.Equal(t, tt.expectedCalls, counter)
 			assert.Equal(t, step.Name, wrapped.Name)
@@ -159,7 +159,7 @@ func TestIfOrElse(t *testing.T) {
 				return newEmptyResult("false")
 			})
 			wrapped := IfOrElse(tt.givenPredicate, trueStep, falseStep)
-			result := wrapped.F(nil)
+			result := wrapped.Action(nil)
 			require.NoError(t, result.Err())
 			assert.Equal(t, tt.expectedCalls, counter)
 			assert.Equal(t, trueStep.Name, wrapped.Name)

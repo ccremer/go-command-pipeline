@@ -8,7 +8,7 @@ import (
 
 // ParallelResultHandler is a callback that provides a Result map and expect a single, combined Result object.
 // The map key is a zero-based index of n-th Pipeline spawned, e.g. pipeline number 3 will have index 2.
-// Return an empty Result if you want to ignore errors, or reduce multiple errors into a single one to make the parent Pipeline fail.
+// Return an empty error if you want to ignore errors, or reduce multiple errors into a single one to make the parent Pipeline fail.
 type ParallelResultHandler[T context.Context] func(ctx T, results map[uint64]Result) error
 
 func collectResults[T context.Context](ctx T, handler ParallelResultHandler[T], m *sync.Map) error {

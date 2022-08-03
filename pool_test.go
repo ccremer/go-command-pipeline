@@ -38,19 +38,19 @@ func TestNewWorkerPoolStep(t *testing.T) {
 				})
 				return
 			}
-			pipes := []*Pipeline[*PipelineContext]{
-				NewPipeline[*PipelineContext]().AddStep(NewStep[*PipelineContext]("step", func(_ *PipelineContext) error {
+			pipes := []*Pipeline[*testContext]{
+				NewPipeline[*testContext]().AddStep(NewStep[*testContext]("step", func(_ *testContext) error {
 					atomic.AddUint64(&counts, 1)
 					return newResultWithError("step", tt.expectedError)
 				})),
 			}
 			step := NewWorkerPoolStep("pool", 1, SupplierFromSlice(pipes),
-				func(ctx *PipelineContext, results map[uint64]Result) error {
+				func(ctx *testContext, results map[uint64]Result) error {
 					assert.Error(t, results[0].Err())
 					return results[0].Err()
 				})
-			ctx := &PipelineContext{Context: context.Background()}
-			result := step.F(ctx)
+			ctx := &testContext{Context: context.Background()}
+			result := step.Action(ctx)
 			assert.Error(t, result)
 		})
 	}
@@ -59,17 +59,17 @@ func TestNewWorkerPoolStep(t *testing.T) {
 func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	var counts uint64
-	step := NewWorkerPoolStep[*PipelineContext]("workerpool", 2, func(ctx *PipelineContext, pipelines chan *Pipeline[*PipelineContext]) {
+	step := NewWorkerPoolStep[*testContext]("workerpool", 2, func(ctx *testContext, pipelines chan *Pipeline[*testContext]) {
 		defer close(pipelines)
 		for i := 0; i < 10000; i++ {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				p := NewPipeline[*PipelineContext]()
+				p := NewPipeline[*testContext]()
 				pipelines <- p.WithSteps(
-					p.NewStep("noop", func(_ *PipelineContext) error { return nil }),
-					p.NewStep("increase", func(_ *PipelineContext) error {
+					p.NewStep("noop", func(_ *testContext) error { return nil }),
+					p.NewStep("increase", func(_ *testContext) error {
 						atomic.AddUint64(&counts, 1)
 						time.Sleep(10 * time.Millisecond)
 						return nil
@@ -77,7 +77,7 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 			}
 		}
 		t.Fail() // should not reach this
-	}, func(ctx *PipelineContext, results map[uint64]Result) error {
+	}, func(ctx *testContext, results map[uint64]Result) error {
 		require.Len(t, results, 9)
 		for r := uint64(0); r < 6; r++ {
 			// The first 6 jobs are successful
@@ -95,8 +95,8 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
-	pctx := &PipelineContext{Context: ctx}
-	result := NewPipeline[*PipelineContext]().WithSteps(step).RunWithContext(pctx)
+	pctx := &testContext{Context: ctx}
+	result := NewPipeline[*testContext]().WithSteps(step).RunWithContext(pctx)
 	assert.Equal(t, 6, int(counts), "successful increments")
 	assert.True(t, result.IsCanceled(), "overall canceled flag")
 	assert.False(t, result.IsSuccessful(), "overall success flag")
@@ -104,8 +104,8 @@ func TestNewWorkerPoolStep_Cancel(t *testing.T) {
 }
 
 func ExampleNewWorkerPoolStep() {
-	p := NewPipeline[*PipelineContext]()
-	pool := NewWorkerPoolStep[*PipelineContext]("pool", 2, func(ctx *PipelineContext, pipelines chan *Pipeline[*PipelineContext]) {
+	p := NewPipeline[*testContext]()
+	pool := NewWorkerPoolStep[*testContext]("pool", 2, func(ctx *testContext, pipelines chan *Pipeline[*testContext]) {
 		defer close(pipelines)
 		// create some pipelines
 		for i := 0; i < 3; i++ {
@@ -114,15 +114,15 @@ func ExampleNewWorkerPoolStep() {
 			case <-ctx.Done():
 				return // parent pipeline has been canceled, let's not create more pipelines.
 			default:
-				newP := NewPipeline[*PipelineContext]()
-				pipelines <- newP.AddStep(newP.NewStep(fmt.Sprintf("i = %d", n), func(_ *PipelineContext) error {
+				newP := NewPipeline[*testContext]()
+				pipelines <- newP.AddStep(newP.NewStep(fmt.Sprintf("i = %d", n), func(_ *testContext) error {
 					time.Sleep(time.Duration(n * 100000000)) // fake some load
 					fmt.Println(fmt.Sprintf("This is job item %d", n))
 					return nil
 				}))
 			}
 		}
-	}, func(ctx *PipelineContext, results map[uint64]Result) error {
+	}, func(ctx *testContext, results map[uint64]Result) error {
 		for jobIndex, result := range results {
 			if result.IsFailed() {
 				fmt.Println(fmt.Sprintf("Job %d failed: %v", jobIndex, result.Err()))
@@ -131,7 +131,7 @@ func ExampleNewWorkerPoolStep() {
 		return nil
 	})
 	p.AddStep(pool)
-	p.RunWithContext(&PipelineContext{Context: context.Background()})
+	p.RunWithContext(&testContext{Context: context.Background()})
 	// Output: This is job item 0
 	// This is job item 1
 	// This is job item 2

@@ -20,7 +20,7 @@ func NewWorkerPoolStep[T context.Context](name string, size int, pipelineSupplie
 		panic("pool size cannot be lower than 1")
 	}
 	step := Step[T]{Name: name}
-	step.F = func(ctx T) error {
+	step.Action = func(ctx T) error {
 		pipelineChan := make(chan *Pipeline[T], size)
 		m := sync.Map{}
 		var wg sync.WaitGroup

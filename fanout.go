@@ -17,7 +17,7 @@ However, the error returned from ParallelResultHandler is wrapped in context.Can
 */
 func NewFanOutStep(name string, pipelineSupplier Supplier, handler ParallelResultHandler) Step {
 	step := Step{Name: name}
-	step.F = func(ctx context.Context) Result {
+	step.Action = func(ctx context.Context) Result {
 		pipelineChan := make(chan *Pipeline)
 		m := sync.Map{}
 		var wg sync.WaitGroup
