@@ -15,13 +15,13 @@ The step waits until all pipelines are finished.
  * If size is 1, the pipelines are effectively run in sequence.
  * If size is 0 or less, the function panics.
 */
-func NewWorkerPoolStep(name string, size int, pipelineSupplier Supplier, handler ParallelResultHandler) Step {
+func NewWorkerPoolStep[T context.Context](name string, size int, pipelineSupplier Supplier[T], handler ParallelResultHandler[T]) Step[T] {
 	if size < 1 {
 		panic("pool size cannot be lower than 1")
 	}
-	step := Step{Name: name}
-	step.F = func(ctx context.Context) Result {
-		pipelineChan := make(chan *Pipeline, size)
+	step := Step[T]{Name: name}
+	step.Action = func(ctx T) error {
+		pipelineChan := make(chan *Pipeline[T], size)
 		m := sync.Map{}
 		var wg sync.WaitGroup
 		count := uint64(0)
@@ -39,7 +39,7 @@ func NewWorkerPoolStep(name string, size int, pipelineSupplier Supplier, handler
 	return step
 }
 
-func poolWork(ctx context.Context, pipelineChan chan *Pipeline, wg *sync.WaitGroup, i *uint64, m *sync.Map) {
+func poolWork[T context.Context](ctx T, pipelineChan chan *Pipeline[T], wg *sync.WaitGroup, i *uint64, m *sync.Map) {
 	defer wg.Done()
 	for pipe := range pipelineChan {
 		n := atomic.AddUint64(i, 1) - 1

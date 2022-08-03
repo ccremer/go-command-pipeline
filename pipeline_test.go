@@ -15,7 +15,7 @@ type hook struct {
 	calls int
 }
 
-func (h *hook) Accept(_ Step) {
+func (h *hook) Accept(_ Step[*testContext]) {
 	h.calls += 1
 }
 
@@ -23,25 +23,25 @@ func TestPipeline_Run(t *testing.T) {
 	callCount := 0
 	hook := &hook{}
 	tests := map[string]struct {
-		givenSteps           []Step
-		givenBeforeHook      Listener
-		givenFinalizer       ResultHandler
+		givenSteps           []Step[*testContext]
+		givenBeforeHook      Listener[*testContext]
+		givenFinalizer       ResultHandler[*testContext]
 		expectErrorString    string
 		expectedCalls        int
 		additionalAssertions func(t *testing.T, result Result)
 	}{
 		"GivenSingleStep_WhenRunning_ThenCallStep": {
-			givenSteps: []Step{
-				NewStep("test-step", func(_ context.Context) Result {
+			givenSteps: []Step[*testContext]{
+				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
-					return newEmptyResult("test-step")
+					return nil
 				}),
 			},
 			expectedCalls: 1,
 		},
 		"GivenSingleStep_WhenBeforeHookGiven_ThenCallBeforeHook": {
-			givenSteps: []Step{
-				NewStepFromFunc("test-step", func(_ context.Context) error {
+			givenSteps: []Step[*testContext]{
+				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += hook.calls + 1
 					return nil
 				}),
@@ -50,15 +50,15 @@ func TestPipeline_Run(t *testing.T) {
 			expectedCalls:   2,
 		},
 		"GivenPipelineWithFinalizer_WhenRunning_ThenCallHandler": {
-			givenFinalizer: func(_ context.Context, result Result) error {
+			givenFinalizer: func(_ *testContext, result Result) error {
 				callCount += 1
 				return nil
 			},
 			expectedCalls: 1,
 		},
 		"GivenSingleStepWithoutHandler_WhenRunningWithError_ThenReturnError": {
-			givenSteps: []Step{
-				NewStepFromFunc("test-step", func(_ context.Context) error {
+			givenSteps: []Step[*testContext]{
+				NewStep("test-step", func(_ *testContext) error {
 					callCount += 1
 					return errors.New("step failed")
 				}),
@@ -67,15 +67,15 @@ func TestPipeline_Run(t *testing.T) {
 			expectErrorString: "step failed",
 		},
 		"GivenSingleStepWithHandler_WhenRunningWithError_ThenAbortWithError": {
-			givenSteps: []Step{
-				NewStepFromFunc("test-step", func(_ context.Context) error {
+			givenSteps: []Step[*testContext]{
+				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
 					return nil
-				}).WithResultHandler(func(_ context.Context, result Result) error {
+				}).WithErrorHandler(func(_ *testContext, _ error) error {
 					callCount += 1
 					return errors.New("handler")
 				}),
-				NewStepFromFunc("don't run this step", func(_ context.Context) error {
+				NewStep[*testContext]("don't run this step", func(_ *testContext) error {
 					callCount += 1
 					return nil
 				}),
@@ -84,15 +84,15 @@ func TestPipeline_Run(t *testing.T) {
 			expectErrorString: "handler",
 		},
 		"GivenSingleStepWithHandler_WhenNullifyingError_ThenContinuePipeline": {
-			givenSteps: []Step{
-				NewStepFromFunc("test-step", func(_ context.Context) error {
+			givenSteps: []Step[*testContext]{
+				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
 					return errors.New("failed step")
-				}).WithResultHandler(func(_ context.Context, result Result) error {
+				}).WithErrorHandler(func(_ *testContext, _ error) error {
 					callCount += 1
 					return nil
 				}),
-				NewStepFromFunc("continue", func(_ context.Context) error {
+				NewStep[*testContext]("continue", func(_ *testContext) error {
 					callCount += 1
 					return nil
 				}),
@@ -103,13 +103,13 @@ func TestPipeline_Run(t *testing.T) {
 			expectedCalls: 3,
 		},
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell": {
-			givenSteps: []Step{
-				NewStepFromFunc("test-step", func(_ context.Context) error {
+			givenSteps: []Step[*testContext]{
+				NewStep[*testContext]("test-step", func(_ *testContext) error {
 					callCount += 1
 					return nil
 				}),
-				NewPipeline().
-					AddStep(NewStepFromFunc("nested-step", func(_ context.Context) error {
+				NewPipeline[*testContext]().
+					AddStep(NewStep[*testContext]("nested-step", func(_ *testContext) error {
 						callCount += 1
 						return nil
 					})).AsNestedStep("nested-pipeline"),
@@ -117,10 +117,10 @@ func TestPipeline_Run(t *testing.T) {
 			expectedCalls: 2,
 		},
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell_Variant2": {
-			givenSteps: []Step{
-				NewPipeline().
+			givenSteps: []Step[*testContext]{
+				NewPipeline[*testContext]().
 					WithNestedSteps("nested-pipeline",
-						NewStepFromFunc("nested-step", func(_ context.Context) error {
+						NewStep[*testContext]("nested-step", func(_ *testContext) error {
 							callCount += 1
 							return nil
 						})),
@@ -131,13 +131,14 @@ func TestPipeline_Run(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			callCount = 0
-			p := &Pipeline{}
+			p := &Pipeline[*testContext]{}
 			p.WithSteps(tt.givenSteps...)
 			p.WithFinalizer(tt.givenFinalizer)
 			if tt.givenBeforeHook != nil {
-				p.AddBeforeHook(tt.givenBeforeHook)
+				p.WithBeforeHooks(tt.givenBeforeHook)
 			}
-			actualResult := p.Run()
+			pctx := &testContext{Context: context.Background()}
+			actualResult := p.RunWithContext(pctx)
 			if tt.expectErrorString != "" {
 				require.Error(t, actualResult.Err())
 				assert.True(t, actualResult.IsFailed())
@@ -155,7 +156,8 @@ func TestPipeline_Run(t *testing.T) {
 }
 
 func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
-	p := NewPipeline().AddStepFromFunc("long running", func(ctx context.Context) error {
+	p := NewPipeline[testContext]()
+	p.AddStepFromFunc("long running", func(ctx testContext) error {
 		for {
 			select {
 			case <-ctx.Done():
@@ -171,7 +173,8 @@ func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		cancel()
 	}()
-	result := p.RunWithContext(ctx)
+	pctx := testContext{ctx}
+	result := p.RunWithContext(pctx)
 	assert.True(t, result.IsCanceled(), "IsCanceled()")
 	assert.Equal(t, "long running", result.Name())
 	assert.EqualError(t, result.Err(), "step \"long running\" failed: context canceled")
@@ -179,22 +182,29 @@ func TestPipeline_RunWithContext_CancelLongRunningStep(t *testing.T) {
 
 func ExamplePipeline_RunWithContext() {
 	// prepare pipeline
-	p := NewPipeline().WithSteps(
-		NewStepFromFunc("short step", func(ctx context.Context) error {
-			fmt.Println("short step")
+	type exampleContext struct {
+		context.Context
+		field string
+	}
+
+	p := NewPipeline[*exampleContext]()
+	p.WithSteps(
+		p.NewStep("short step", func(ctx *exampleContext) error {
+			fmt.Println(ctx.field)
 			return nil
 		}),
-		NewStepFromFunc("long running step", func(ctx context.Context) error {
+		p.NewStep("long running step", func(ctx *exampleContext) error {
 			time.Sleep(100 * time.Millisecond)
 			return nil
 		}),
-		NewStepFromFunc("canceled step", func(ctx context.Context) error {
+		p.NewStep("canceled step", func(ctx *exampleContext) error {
 			return errors.New("shouldn't execute")
 		}),
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	result := p.RunWithContext(ctx)
+	pctx := &exampleContext{ctx, "hello world"}
+	result := p.RunWithContext(pctx)
 	// inspect the result
 	fmt.Println(result.IsCanceled())
 	fmt.Println(result.Err())
@@ -203,12 +213,6 @@ func ExamplePipeline_RunWithContext() {
 	// step "canceled step" failed: context deadline exceeded
 }
 
-func TestNewStepFromFunc(t *testing.T) {
-	called := false
-	step := NewStepFromFunc("name", func(ctx context.Context) error {
-		called = true
-		return nil
-	})
-	_ = step.F(nil)
-	assert.True(t, called)
+type testContext struct {
+	context.Context
 }

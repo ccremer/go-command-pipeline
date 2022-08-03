@@ -62,9 +62,9 @@ func Test_Predicates(t *testing.T) {
 				counter += 1
 				return nil
 			}, tt.givenPredicate)
-			result := step.F(nil)
+			result := step.Action(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
-			assert.NoError(t, result.Err())
+			assert.NoError(t, result)
 		})
 	}
 }
@@ -88,12 +88,12 @@ func TestToNestedStep(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			p := NewPipeline().AddStep(NewStep("nested step", func(_ context.Context) Result {
+			p := NewPipeline[context.Context]().AddStep(NewStep("nested step", func(_ context.Context) error {
 				counter++
-				return newEmptyResult("nested step")
+				return nil
 			}))
 			step := ToNestedStep("super step", tt.givenPredicate, p)
-			_ = step.F(nil)
+			_ = step.Action(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
 		})
 	}
@@ -118,13 +118,13 @@ func TestIf(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := NewStep("step", func(_ context.Context) Result {
+			step := NewStep("step", func(_ context.Context) error {
 				counter++
-				return newEmptyResult("step")
+				return nil
 			})
 			wrapped := If(tt.givenPredicate, step)
-			result := wrapped.F(nil)
-			require.NoError(t, result.Err())
+			result := wrapped.Action(nil)
+			require.NoError(t, result)
 			assert.Equal(t, tt.expectedCalls, counter)
 			assert.Equal(t, step.Name, wrapped.Name)
 		})
@@ -150,17 +150,17 @@ func TestIfOrElse(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			trueStep := NewStep("true", func(_ context.Context) Result {
+			trueStep := NewStep("true", func(_ context.Context) error {
 				counter++
-				return newEmptyResult("true")
+				return nil
 			})
-			falseStep := NewStep("false", func(ctx context.Context) Result {
+			falseStep := NewStep("false", func(ctx context.Context) error {
 				counter--
-				return newEmptyResult("false")
+				return nil
 			})
 			wrapped := IfOrElse(tt.givenPredicate, trueStep, falseStep)
-			result := wrapped.F(nil)
-			require.NoError(t, result.Err())
+			result := wrapped.Action(nil)
+			require.NoError(t, result)
 			assert.Equal(t, tt.expectedCalls, counter)
 			assert.Equal(t, trueStep.Name, wrapped.Name)
 		})
@@ -169,14 +169,14 @@ func TestIfOrElse(t *testing.T) {
 func TestBoolPtr(t *testing.T) {
 	called := false
 	b := false
-	p := NewPipeline().WithSteps(
-		If(BoolPtr(&b), NewStepFromFunc("boolptr", func(_ context.Context) error {
+	p := NewPipeline[context.Context]().WithSteps(
+		If(BoolPtr(&b), NewStep("boolptr", func(_ context.Context) error {
 			called = true
 			return nil
 		})),
 	)
 	b = true
-	_ = p.Run()
+	_ = p.RunWithContext(context.Background())
 	assert.True(t, called)
 }
 

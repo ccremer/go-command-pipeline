@@ -25,13 +25,13 @@ func TestStep_WithErrorHandler(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			executed := false
-			s := NewStepFromFunc("test", func(_ context.Context) error {
+			s := NewStep("test", func(_ context.Context) error {
 				return nil
 			}).WithErrorHandler(func(_ context.Context, err error) error {
 				executed = true
 				return err
 			})
-			err := s.H(nil, newResultWithError("", tt.givenError))
+			err := s.Handler(nil, newResultWithError("", tt.givenError))
 			assert.Equal(t, tt.givenError, err)
 			assert.Equal(t, tt.expectedExecution, executed)
 		})

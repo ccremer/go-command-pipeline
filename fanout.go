@@ -15,10 +15,10 @@ If the context is canceled, no new pipelines will be retrieved from the channel 
 Also, once canceled, the step waits for the remaining children pipelines and collects their result via given ParallelResultHandler.
 However, the error returned from ParallelResultHandler is wrapped in context.Canceled.
 */
-func NewFanOutStep(name string, pipelineSupplier Supplier, handler ParallelResultHandler) Step {
-	step := Step{Name: name}
-	step.F = func(ctx context.Context) Result {
-		pipelineChan := make(chan *Pipeline)
+func NewFanOutStep[T context.Context](name string, pipelineSupplier Supplier[T], handler ParallelResultHandler[T]) Step[T] {
+	step := Step[T]{Name: name}
+	step.Action = func(ctx T) error {
+		pipelineChan := make(chan *Pipeline[T])
 		m := sync.Map{}
 		var wg sync.WaitGroup
 		i := uint64(0)
