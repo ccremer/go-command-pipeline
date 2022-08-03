@@ -4,6 +4,7 @@ package examples
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/exec"
@@ -19,9 +20,11 @@ type GitContext struct {
 func TestExample_Git(t *testing.T) {
 	p := pipeline.NewPipeline[context.Context]()
 	p.WithSteps(
-		CloneGitRepository(),
-		CheckoutBranch(),
-		Pull().WithResultHandler(logSuccess),
+		pipeline.If[context.Context](pipeline.Not(DirExists("my-repo")),
+			p.NewStep("clone repository", CloneGitRepository()),
+		),
+		p.NewStep("checkout branch", CheckoutBranch()),
+		p.NewStep("pull", Pull()).WithErrorHandler(logSuccess),
 	)
 	result := p.RunWithContext(&GitContext{context.Background()})
 	if !result.IsSuccessful() {
@@ -29,30 +32,35 @@ func TestExample_Git(t *testing.T) {
 	}
 }
 
-func logSuccess(_ context.Context, result pipeline.Result) error {
-	log.Println("handler called", result.Name())
-	return result.Err()
+func logSuccess(_ context.Context, err error) error {
+	if err != nil {
+		var result pipeline.Result
+		if errors.As(err, &result) {
+			log.Println("handler called", result.Name())
+		}
+	}
+	return err
 }
 
-func CloneGitRepository() pipeline.Step {
-	return pipeline.ToStep("clone repository", func(_ context.Context) error {
+func CloneGitRepository() pipeline.ActionFunc[context.Context] {
+	return func(_ context.Context) error {
 		err := execGitCommand("clone", "git@github.com/ccremer/go-command-pipeline")
 		return err
-	}, pipeline.Not(DirExists("my-repo")))
+	}
 }
 
-func Pull() pipeline.Step {
-	return pipeline.NewStepFromFunc("pull", func(_ context.Context) error {
-		err := execGitCommand("pull")
-		return err
-	})
-}
-
-func CheckoutBranch() pipeline.Step {
-	return pipeline.NewStepFromFunc("checkout branch", func(_ context.Context) error {
+func CheckoutBranch() pipeline.ActionFunc[context.Context] {
+	return func(_ context.Context) error {
 		err := execGitCommand("checkout", "master")
 		return err
-	})
+	}
+}
+
+func Pull() pipeline.ActionFunc[context.Context] {
+	return func(_ context.Context) error {
+		err := execGitCommand("pull")
+		return err
+	}
 }
 
 func execGitCommand(args ...string) error {
