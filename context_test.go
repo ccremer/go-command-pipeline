@@ -70,15 +70,30 @@ func TestMustLoadFromContext(t *testing.T) {
 		assert.Nil(t, result)
 	})
 	t.Run("KeyDoesntExist", func(t *testing.T) {
-		ctx := MutableContext(context.Background())
-		result := MustLoadFromContext(ctx, "key")
-		assert.Nil(t, result)
+		assert.PanicsWithError(t, `key "key" was not found in context`, func() {
+			ctx := MutableContext(context.Background())
+			_ = MustLoadFromContext(ctx, "key")
+		})
 	})
 	t.Run("KeyExistsWithValue", func(t *testing.T) {
 		ctx := MutableContext(context.Background())
 		StoreInContext(ctx, "key", "value")
 		result := MustLoadFromContext(ctx, "key")
 		assert.Equal(t, "value", result)
+	})
+}
+
+func TestLoadFromContextOrDefault(t *testing.T) {
+	t.Run("KeyExists", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		StoreInContext(ctx, "key", "value")
+		result := LoadFromContextOrDefault(ctx, "key", "default")
+		assert.Equal(t, "value", result)
+	})
+	t.Run("KeyDoesntExist", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		result := LoadFromContextOrDefault(ctx, "key", "default")
+		assert.Equal(t, "default", result)
 	})
 }
 

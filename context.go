@@ -2,7 +2,7 @@ package pipeline
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -26,10 +26,10 @@ func MutableContext(parent context.Context) context.Context {
 // Use LoadFromContext to retrieve values.
 //
 // Note: This method is thread-safe, but panics if ctx has not been set up with MutableContext first.
-func StoreInContext(ctx context.Context, key, value interface{}) {
+func StoreInContext(ctx context.Context, key, value any) {
 	m := ctx.Value(contextKey{})
 	if m == nil {
-		panic(errors.New("context was not set up with MutableContext()"))
+		panic(fmt.Errorf("context was not set up with MutableContext()"))
 	}
 	m.(*sync.Map).Store(key, value)
 }
@@ -40,10 +40,10 @@ func StoreInContext(ctx context.Context, key, value interface{}) {
 // Use StoreInContext to store values.
 //
 // Note: This method is thread-safe, but panics if the ctx has not been set up with MutableContext first.
-func LoadFromContext(ctx context.Context, key interface{}) (interface{}, bool) {
+func LoadFromContext(ctx context.Context, key any) (any, bool) {
 	m := ctx.Value(contextKey{})
 	if m == nil {
-		panic(errors.New("context was not set up with MutableContext()"))
+		panic(fmt.Errorf("context was not set up with MutableContext()"))
 	}
 	mp := m.(*sync.Map)
 	val, found := mp.Load(key)
@@ -51,12 +51,26 @@ func LoadFromContext(ctx context.Context, key interface{}) (interface{}, bool) {
 }
 
 // MustLoadFromContext is similar to LoadFromContext, except it doesn't return a bool to indicate whether the key exists.
-// It returns nil if either the key doesn't exist, or if the value of the key is nil.
+// It panics if the key doesn't exist.
 // Use StoreInContext to store values.
 //
-// Note: This is a convenience method for cases when it's not relevant whether the key is existing or not.
 // Note: This method is thread-safe, but panics if the ctx has not been set up with MutableContext first.
-func MustLoadFromContext(ctx context.Context, key interface{}) interface{} {
-	val, _ := LoadFromContext(ctx, key)
+func MustLoadFromContext(ctx context.Context, key any) any {
+	val, found := LoadFromContext(ctx, key)
+	if !found {
+		panic(fmt.Errorf("key %q was not found in context", key))
+	}
+	return val
+}
+
+// LoadFromContextOrDefault is similar to MustLoadFromContext, except it returns the given default value if the key doesn't exist.
+// Use StoreInContext to store values.
+//
+// Note: This method is thread-safe, but panics if the ctx has not been set up with MutableContext first.
+func LoadFromContextOrDefault(ctx context.Context, key any, defValue any) any {
+	val, found := LoadFromContext(ctx, key)
+	if !found {
+		return defValue
+	}
 	return val
 }
