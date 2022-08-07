@@ -11,16 +11,16 @@ import (
 )
 
 func TestExample_Hooks(t *testing.T) {
-	p := pipeline.NewPipeline()
-	p.AddBeforeHook(func(step pipeline.Step) {
-		fmt.Println(fmt.Sprintf("Executing step: %s", step.Name))
+	p := pipeline.NewPipeline[context.Context]()
+	p.WithBeforeHooks(func(step pipeline.Step[context.Context]) {
+		fmt.Println(fmt.Sprintf("Entering step: %s", step.Name))
 	})
 	p.WithSteps(
-		pipeline.NewStepFromFunc("hook demo", AfterHookAction),
+		p.NewStep("hook demo", AfterHookAction),
 	)
-	result := p.Run()
-	if !result.IsSuccessful() {
-		t.Fatal(result.Err())
+	err := p.RunWithContext(context.Background())
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -1,37 +1,39 @@
 package pipeline
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
+
+// Step is an intermediary action and part of a Pipeline.
+type Step[T context.Context] struct {
+	// Name describes the step's human-readable name.
+	// It has no other uses other than easily identifying a step for debugging or logging.
+	Name string
+	// Action is the ActionFunc assigned to a pipeline Step.
+	// This is required.
+	Action ActionFunc[T]
+	// Handler is the ErrorHandler assigned to a pipeline Step.
+	// This is optional, and it will be called if it is set after Action completed.
+	// Use cases could be logging, updating a GUI or handle errors while continuing the pipeline.
+	// The function may return nil even if the given error is non-nil, in which case the pipeline will continue.
+	// This function is called before the next step's Action is invoked.
+	Handler ErrorHandler[T]
+}
 
 // NewStep returns a new Step with given name and action.
-func NewStep(name string, action ActionFunc) Step {
-	return Step{
-		Name: name,
-		F:    action,
+func NewStep[T context.Context](name string, action ActionFunc[T]) Step[T] {
+	if action == nil {
+		panic(fmt.Errorf("action cannot be empty for step %q", name))
+	}
+	return Step[T]{
+		Name:   name,
+		Action: action,
 	}
 }
 
-// NewStepFromFunc returns a new Step with given name using a function that expects an error.
-func NewStepFromFunc(name string, fn func(ctx context.Context) error) Step {
-	return NewStep(name, func(ctx context.Context) Result {
-		err := fn(ctx)
-		return newResultWithError(name, err)
-	})
-}
-
-// WithResultHandler sets the ResultHandler of this specific step and returns the step itself.
-func (s Step) WithResultHandler(handler ResultHandler) Step {
-	s.H = handler
-	return s
-}
-
-// WithErrorHandler wraps given errorHandler and sets the ResultHandler of this specific step and returns the step itself.
-// The difference to WithResultHandler is that errorHandler only gets called if Result.Err is non-nil.
-func (s Step) WithErrorHandler(errorHandler func(ctx context.Context, err error) error) Step {
-	s.H = func(ctx context.Context, result Result) error {
-		if result.IsFailed() {
-			return errorHandler(ctx, result.Err())
-		}
-		return nil
-	}
+// WithErrorHandler sets the ErrorHandler of this specific step and returns the step itself.
+func (s Step[T]) WithErrorHandler(errorHandler ErrorHandler[T]) Step[T] {
+	s.Handler = errorHandler
 	return s
 }

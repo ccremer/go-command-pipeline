@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
 
 func TestNewFanOutStep(t *testing.T) {
-	var counts uint64
 	tests := map[string]struct {
 		jobs               int
-		givenResultHandler ParallelResultHandler
+		givenResultHandler ParallelResultHandler[*testContext]
 		returnErr          error
-		expectedCounts     int
+		expectedCounts     int64
 	}{
 		"GivenSinglePipeline_WhenRunningStep_ThenReturnSuccess": {
 			jobs:           1,
@@ -30,73 +30,75 @@ func TestNewFanOutStep(t *testing.T) {
 		"GivenPipelineWith_WhenRunningStep_ThenReturnSuccessButRunErrorHandler": {
 			jobs:      1,
 			returnErr: fmt.Errorf("should be called"),
-			givenResultHandler: func(ctx context.Context, _ map[uint64]Result) error {
-				atomic.AddUint64(&counts, 1)
+			givenResultHandler: func(ctx *testContext, _ map[uint64]error) error {
+				atomic.AddInt64(&ctx.count, 1)
 				return nil
 			},
 			expectedCounts: 2,
 		},
 	}
 	for name, tt := range tests {
-		counts = 0
+		ctx := &testContext{context.Background(), 0}
 		t.Run(name, func(t *testing.T) {
 			goleak.VerifyNone(t)
 			handler := tt.givenResultHandler
 			if handler == nil {
-				handler = func(ctx context.Context, results map[uint64]Result) error {
-					assert.NoError(t, results[0].Err())
+				handler = func(ctx *testContext, results map[uint64]error) error {
+					assert.NoError(t, results[0])
 					return nil
 				}
 			}
-			step := NewFanOutStep("fanout", func(_ context.Context, funcs chan *Pipeline) {
+			step := NewFanOutStep("fanout", func(_ *testContext, funcs chan *Pipeline[*testContext]) {
 				defer close(funcs)
 				for i := 0; i < tt.jobs; i++ {
-					funcs <- NewPipeline().WithSteps(NewStepFromFunc("step", func(_ context.Context) error {
-						atomic.AddUint64(&counts, 1)
+					p := NewPipeline[*testContext]()
+					funcs <- p.WithSteps(p.NewStep("step", func(_ *testContext) error {
+						atomic.AddInt64(&ctx.count, 1)
 						return tt.returnErr
 					}))
 				}
 			}, handler)
-			result := step.F(context.Background())
-			assert.NoError(t, result.Err())
-			assert.Equal(t, tt.expectedCounts, int(counts))
+			err := step.Action(ctx)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedCounts, ctx.count)
 		})
 	}
 }
 
 func TestNewFanOutStep_Cancel(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	var counts uint64
-	step := NewFanOutStep("fanout", func(ctx context.Context, pipelines chan *Pipeline) {
+	step := NewFanOutStep("fanout", func(ctx *testContext, pipelines chan *Pipeline[*testContext]) {
 		defer close(pipelines)
 		for i := 0; i < 10000; i++ {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				pipelines <- NewPipeline().WithSteps(NewStepFromFunc("increase", func(_ context.Context) error {
-					atomic.AddUint64(&counts, 1)
+				p := NewPipeline[*testContext]()
+				pipelines <- p.WithSteps(p.NewStep("increase", func(ctx *testContext) error {
+					atomic.AddInt64(&ctx.count, 1)
 					return nil
 				}))
 				time.Sleep(10 * time.Millisecond)
 			}
 		}
 		t.Fail() // should not reach this
-	}, func(ctx context.Context, results map[uint64]Result) error {
+	}, func(ctx *testContext, results map[uint64]error) error {
 		assert.Len(t, results, 3)
 		return fmt.Errorf("some error")
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
 	defer cancel()
-	result := NewPipeline().WithSteps(step).RunWithContext(ctx)
-	assert.Equal(t, 3, int(counts))
-	assert.True(t, result.IsCanceled(), "canceled flag")
-	assert.EqualError(t, result.Err(), `step "fanout" failed: context deadline exceeded, collection error: some error`)
+	pctx := &testContext{ctx, 0}
+	err := NewPipeline[*testContext]().WithSteps(step).RunWithContext(pctx)
+	require.Error(t, err)
+	assert.Equal(t, int64(3), pctx.count)
+	assert.EqualError(t, err, `step 'fanout' failed: context deadline exceeded, collection error: some error`)
 }
 
 func ExampleNewFanOutStep() {
-	p := NewPipeline()
-	fanout := NewFanOutStep("fanout", func(ctx context.Context, pipelines chan *Pipeline) {
+	p := NewPipeline[context.Context]()
+	fanout := NewFanOutStep[context.Context]("fanout", func(ctx context.Context, pipelines chan *Pipeline[context.Context]) {
 		defer close(pipelines)
 		// create some pipelines
 		for i := 0; i < 3; i++ {
@@ -105,23 +107,24 @@ func ExampleNewFanOutStep() {
 			case <-ctx.Done():
 				return // parent pipeline has been canceled, let's not create more pipelines.
 			default:
-				pipelines <- NewPipeline().AddStep(NewStepFromFunc(fmt.Sprintf("i = %d", n), func(_ context.Context) error {
+				p := NewPipeline[context.Context]()
+				pipelines <- p.AddStep(p.NewStep(fmt.Sprintf("i = %d", n), func(_ context.Context) error {
 					time.Sleep(time.Duration(n * 10000000)) // fake some load
 					fmt.Println(fmt.Sprintf("I am worker %d", n))
 					return nil
 				}))
 			}
 		}
-	}, func(ctx context.Context, results map[uint64]Result) error {
+	}, func(ctx context.Context, results map[uint64]error) error {
 		for worker, result := range results {
-			if result.IsFailed() {
-				fmt.Println(fmt.Sprintf("Worker %d failed: %v", worker, result.Err()))
+			if result != nil {
+				fmt.Println(fmt.Sprintf("Worker %d failed: %v", worker, result))
 			}
 		}
 		return nil
 	})
 	p.AddStep(fanout)
-	p.Run()
+	p.RunWithContext(context.Background())
 	// Output: I am worker 0
 	// I am worker 1
 	// I am worker 2

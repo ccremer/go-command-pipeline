@@ -5,7 +5,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ccremer/go-command-pipeline)][goreport]
 [![Codecov](https://img.shields.io/codecov/c/github/ccremer/go-command-pipeline?token=XGOC4XUMJ5)][codecov]
 
-Small Go utility that executes business actions in a pipeline.
+Small Go utility that executes business actions (functions) in a pipeline.
+This utility is for you if you think that the business logic is distracted by Go's error handling with `if err != nil` all over the place.
 
 ## Usage
 
@@ -16,33 +17,34 @@ import (
 )
 
 type Data struct {
+    context.Context
     Number int
 }
 
 func main() {
-	data := &Data // define arbitrary data to pass around in the steps.
-	p := pipeline.NewPipeline()
+	data := &Data{context.Background(), 0} // define arbitrary data to pass around in the steps.
+	p := pipeline.NewPipeline[*Data]()
+	// define business steps neatly in one place:
 	p.WithSteps(
-		pipeline.NewStepFromFunc("define random number", defineNumber),
-		pipeline.NewStepFromFunc("print number", printNumber),
+		p.NewStep("define random number", defineNumber),
+		p.NewStep("print number", printNumber),
 	)
-	result := p.RunWithContext(context.WithValue(context.Background, "data", data))
-	if !result.IsSuccessful() {
-		log.Fatal(result.Err)
+	err := p.RunWithContext(data)
+	if err != nil {
+		log.Fatal(result)
 	}
 }
 
-func defineNumber(ctx context.Context) error {
-	ctx.Value("data").(*Data).Number = 10
+func defineNumber(ctx *Data) error {
+	ctx.Number = 10
 	return nil
 }
 
 // Let's assume this is a business function that can fail.
 // You can enable "automatic" fail-on-first-error pipelines by having more small functions that return errors.
-func printNumber(ctx context.Context) error {
-	number := ctx.Value("data").(*Data).Number
-	fmt.Println(number)
-	return nil
+func printNumber(ctx *Data) error {
+	_, err := fmt.Println(ctx.Number)
+	return err
 }
 ```
 
@@ -74,17 +76,17 @@ We have tons of `if err != nil` that bloats the function with more error handlin
 It could be simplified to something like this:
 ```go
 func Persist(data *Data) error {
-    p := pipeline.NewPipeline().WithSteps(
-        pipeline.NewStepFromFunc("prepareTransaction", prepareTransaction()),
-        pipeline.NewStepFromFunc("executeQuery", executeQuery()),
-        pipeline.NewStepFromFunc("commitTransaction", commit()),
+    p := pipeline.NewPipeline[*Data]()
+    p.WithSteps(
+        p.NewStep("prepareTransaction", prepareTransaction()),
+        p.NewStep("executeQuery", executeQuery()),
+        p.NewStep("commitTransaction", commit()),
     )
-    return p.RunWithContext(context.WithValue(context.Background(), myKey, data).Err
+    return p.RunWithContext(data)
 }
 
-func executeQuery() error {
-	return func(ctx context.Context) error {
-		data := ctx.Value(myKey).(*Data)
+func executeQuery() pipeline.ActionFunc[*Data] {
+	return func(data *Data) error {
 		err := database.executeQuery("SOME QUERY", data)
 		return err
 	)
@@ -92,6 +94,7 @@ func executeQuery() error {
 ...
 ```
 While it seems to add more lines in order to set up a pipeline, it makes it very easily understandable what `Persist()` does without all the error handling.
+Plus, each small step might get easier to unit test.
 
 [releases]: https://github.com/ccremer/go-command-pipeline/releases
 [codecov]: https://app.codecov.io/gh/ccremer/go-command-pipeline
