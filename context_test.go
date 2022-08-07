@@ -70,9 +70,10 @@ func TestMustLoadFromContext(t *testing.T) {
 		assert.Nil(t, result)
 	})
 	t.Run("KeyDoesntExist", func(t *testing.T) {
-		ctx := MutableContext(context.Background())
-		result := MustLoadFromContext(ctx, "key")
-		assert.Nil(t, result)
+		assert.PanicsWithError(t, `key "key" was not found in context`, func() {
+			ctx := MutableContext(context.Background())
+			_ = MustLoadFromContext(ctx, "key")
+		})
 	})
 	t.Run("KeyExistsWithValue", func(t *testing.T) {
 		ctx := MutableContext(context.Background())
