@@ -84,12 +84,12 @@ func TestMustLoadFromContext(t *testing.T) {
 
 func ExampleMutableContext() {
 	ctx := MutableContext(context.Background())
-	p := NewPipeline().WithSteps(
-		NewStepFromFunc("store value", func(ctx context.Context) error {
+	p := NewPipeline[context.Context]().WithSteps(
+		NewStep("store value", func(ctx context.Context) error {
 			StoreInContext(ctx, "key", "value")
 			return nil
 		}),
-		NewStepFromFunc("retrieve value", func(ctx context.Context) error {
+		NewStep("retrieve value", func(ctx context.Context) error {
 			value, _ := LoadFromContext(ctx, "key")
 			fmt.Println(value)
 			return nil
