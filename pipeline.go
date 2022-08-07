@@ -10,7 +10,7 @@ type Pipeline[T context.Context] struct {
 	steps       []Step[T]
 	beforeHooks []Listener[T]
 	finalizer   ErrorHandler[T]
-	options     options
+	options     Options
 }
 
 // Listener is a simple func that listens to Pipeline events.
@@ -134,7 +134,7 @@ func (p *Pipeline[T]) doRun(ctx T) Result {
 
 func (p *Pipeline[T]) fail(err error, step Step[T]) Result {
 	var resultErr error
-	if p.options.disableErrorWrapping {
+	if p.options.DisableErrorWrapping {
 		resultErr = err
 	} else {
 		resultErr = fmt.Errorf("step '%s' failed: %w", step.Name, err)
