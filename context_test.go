@@ -83,6 +83,20 @@ func TestMustLoadFromContext(t *testing.T) {
 	})
 }
 
+func TestLoadFromContextOrDefault(t *testing.T) {
+	t.Run("KeyExists", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		StoreInContext(ctx, "key", "value")
+		result := LoadFromContextOrDefault(ctx, "key", "default")
+		assert.Equal(t, "value", result)
+	})
+	t.Run("KeyDoesntExist", func(t *testing.T) {
+		ctx := MutableContext(context.Background())
+		result := LoadFromContextOrDefault(ctx, "key", "default")
+		assert.Equal(t, "default", result)
+	})
+}
+
 func ExampleMutableContext() {
 	type key struct{}
 
