@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Predicates(t *testing.T) {
@@ -13,165 +12,76 @@ func Test_Predicates(t *testing.T) {
 	tests := map[string]struct {
 		givenPredicate Predicate[context.Context]
 		expectedCounts int
+		expectedResult bool
 	}{
-		"GivenBoolPredicate_WhenRunning_ThenInvoke": {
+		"GivenBoolPredicate_WhenRunning_ThenExpectTrue": {
 			givenPredicate: Bool[context.Context](true),
-			expectedCounts: 1,
+			expectedCounts: 0,
+			expectedResult: true,
 		},
-		"GivenAnd_WhenBothFalse_ThenIgnoreSecondPredicate": {
+		"GivenAnd_WhenBothFalse_ThenExpectFalseAndIgnoreSecondPredicate": {
 			givenPredicate: And[context.Context](falsePredicate(&counter), falsePredicate(&counter)),
 			expectedCounts: -1,
+			expectedResult: false,
 		},
-		"GivenAndPredicate_WhenFirstTrue_ThenIgnore": {
+		"GivenAndPredicate_WhenSecondFalse_ThenExpectFalse": {
 			givenPredicate: And[context.Context](truePredicate(&counter), falsePredicate(&counter)),
 			expectedCounts: 0,
+			expectedResult: false,
 		},
-		"GivenAndPredicate_WhenBothTrue_ThenRunAction": {
+		"GivenAndPredicate_WhenBothTrue_ThenExpectTrue": {
 			givenPredicate: And[context.Context](truePredicate(&counter), truePredicate(&counter)),
-			expectedCounts: 3,
+			expectedCounts: 2,
+			expectedResult: true,
 		},
-		"GivenNotPredicate_WhenFalse_ThenRunAction": {
+		"GivenNotPredicate_WhenFalse_ThenExpectTrue": {
 			givenPredicate: Not[context.Context](falsePredicate(&counter)),
-			expectedCounts: 0,
+			expectedCounts: -1,
+			expectedResult: true,
 		},
-		"GivenNotPredicate_WhenTrue_ThenIgnoreAction": {
+		"GivenNotPredicate_WhenTrue_ThenExpectFalse": {
 			givenPredicate: Not[context.Context](truePredicate(&counter)),
 			expectedCounts: 1,
+			expectedResult: false,
 		},
-		"GivenOrPredicate_WhenBothFalse_ThenIgnoreAction": {
+		"GivenOrPredicate_WhenBothFalse_ThenExpectFalse": {
 			givenPredicate: Or[context.Context](falsePredicate(&counter), falsePredicate(&counter)),
 			expectedCounts: -2,
+			expectedResult: false,
 		},
-		"GivenOrPredicate_WhenFirstTrue_ThenRunAction": {
+		"GivenOrPredicate_WhenFirstTrue_ThenExpectTrue": {
 			givenPredicate: Or[context.Context](truePredicate(&counter), falsePredicate(&counter)),
-			expectedCounts: 2,
-		},
-		"GivenOrPredicate_WhenSecondTrue_ThenRunAction": {
-			givenPredicate: Or[context.Context](falsePredicate(&counter), truePredicate(&counter)),
 			expectedCounts: 1,
+			expectedResult: true,
 		},
-		"GivenOrPredicate_WhenBothTrue_ThenRunActionAfterFirstPredicate": {
+		"GivenOrPredicate_WhenSecondTrue_ThenExpectTrue": {
+			givenPredicate: Or[context.Context](falsePredicate(&counter), truePredicate(&counter)),
+			expectedCounts: 0,
+			expectedResult: true,
+		},
+		"GivenOrPredicate_WhenBothTrue_ThenExpectTrueAfterFirstPredicate": {
 			givenPredicate: Or[context.Context](truePredicate(&counter), truePredicate(&counter)),
-			expectedCounts: 2,
+			expectedCounts: 1,
+			expectedResult: true,
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			counter = 0
-			step := ToStep("name", func(_ context.Context) error {
-				counter += 1
-				return nil
-			}, tt.givenPredicate)
-			result := step.Action(nil)
+			step := Step[context.Context]{Condition: tt.givenPredicate}
+			result := step.Condition(nil)
 			assert.Equal(t, tt.expectedCounts, counter)
-			assert.NoError(t, result)
+			assert.Equal(t, tt.expectedResult, result)
 		})
 	}
 }
 
-func TestToNestedStep(t *testing.T) {
-	counter := 0
-	tests := map[string]struct {
-		givenPredicate Predicate[context.Context]
-		expectedCounts int
-	}{
-		"GivenPipeline_WhenPredicateEvalsTrue_ThenRunPipeline": {
-			givenPredicate: truePredicate(&counter),
-			expectedCounts: 2,
-		},
-		"GivenPipeline_WhenPredicateEvalsFalse_ThenIgnorePipeline": {
-			givenPredicate: falsePredicate(&counter),
-			expectedCounts: -1,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			counter = 0
-			p := NewPipeline[context.Context]().AddStep(NewStep("nested step", func(_ context.Context) error {
-				counter++
-				return nil
-			}))
-			step := ToNestedStep("super step", tt.givenPredicate, p)
-			_ = step.Action(context.Background())
-			assert.Equal(t, tt.expectedCounts, counter)
-		})
-	}
-}
-
-func TestIf(t *testing.T) {
-	counter := 0
-	tests := map[string]struct {
-		givenPredicate Predicate[context.Context]
-		expectedCalls  int
-	}{
-		"GivenWrappedStep_WhenPredicateEvalsTrue_ThenRunAction": {
-			givenPredicate: truePredicate(&counter),
-			expectedCalls:  2,
-		},
-		"GivenWrappedStep_WhenPredicateEvalsFalse_ThenIgnoreAction": {
-			givenPredicate: falsePredicate(&counter),
-			expectedCalls:  -1,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			counter = 0
-			step := NewStep("step", func(_ context.Context) error {
-				counter++
-				return nil
-			})
-			wrapped := If(tt.givenPredicate, step)
-			result := wrapped.Action(nil)
-			require.NoError(t, result)
-			assert.Equal(t, tt.expectedCalls, counter)
-			assert.Equal(t, step.Name, wrapped.Name)
-		})
-	}
-}
-
-func TestIfOrElse(t *testing.T) {
-	counter := 0
-	tests := map[string]struct {
-		givenPredicate Predicate[context.Context]
-		expectedCalls  int
-	}{
-		"GivenWrappedStep_WhenPredicateEvalsTrue_ThenRunMainAction": {
-			givenPredicate: truePredicate(&counter),
-			expectedCalls:  2,
-		},
-		"GivenWrappedStep_WhenPredicateEvalsFalse_ThenRunAlternativeAction": {
-			givenPredicate: falsePredicate(&counter),
-			expectedCalls:  -2,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			counter = 0
-			trueStep := NewStep("true", func(_ context.Context) error {
-				counter++
-				return nil
-			})
-			falseStep := NewStep("false", func(ctx context.Context) error {
-				counter--
-				return nil
-			})
-			wrapped := IfOrElse(tt.givenPredicate, trueStep, falseStep)
-			result := wrapped.Action(nil)
-			require.NoError(t, result)
-			assert.Equal(t, tt.expectedCalls, counter)
-			assert.Equal(t, trueStep.Name, wrapped.Name)
-		})
-	}
-}
 func TestBoolPtr(t *testing.T) {
 	called := false
 	b := false
 	p := NewPipeline[context.Context]()
 	p.WithSteps(
-		p.If(BoolPtr[context.Context](&b), "boolptr", func(_ context.Context) error {
+		p.When(BoolPtr[context.Context](&b), "boolptr", func(_ context.Context) error {
 			called = true
 			return nil
 		}),

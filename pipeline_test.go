@@ -118,7 +118,7 @@ func TestPipeline_RunWithContext(t *testing.T) {
 		"GivenNestedPipeline_WhenParentPipelineRuns_ThenRunNestedAsWell_Variant2": {
 			givenSteps: []Step[*testContext]{
 				NewPipeline[*testContext]().
-					WithNestedSteps("nested-pipeline",
+					WithNestedSteps("nested-pipeline", nil,
 						NewStep[*testContext]("nested-step", func(ctx *testContext) error {
 							ctx.count += 1
 							return nil
@@ -216,6 +216,15 @@ func ExamplePipeline_RunWithContext() {
 	fmt.Println(err)
 	// Output: hello world
 	// step 'canceled step' failed: context deadline exceeded
+}
+
+func ExamplePipeline_When() {
+	p := NewPipeline[context.Context]()
+	p.WithSteps(
+		p.When(Bool[context.Context](true), "run", func(ctx context.Context) error {
+			return nil
+		}),
+	)
 }
 
 type testContext struct {
