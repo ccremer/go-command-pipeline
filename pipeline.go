@@ -53,8 +53,9 @@ func (p *Pipeline[T]) WithSteps(steps ...Step[T]) *Pipeline[T] {
 }
 
 // WithNestedSteps is similar to AsNestedStep, but it accepts the steps given directly as parameters.
-func (p *Pipeline[T]) WithNestedSteps(name string, steps ...Step[T]) Step[T] {
-	return NewStep[T](name, func(ctx T) error {
+// When predicate is non-nil then the steps are only executed if it evaluates to `true`.
+func (p *Pipeline[T]) WithNestedSteps(name string, predicate Predicate[T], steps ...Step[T]) Step[T] {
+	return NewStepIf[T](predicate, name, func(ctx T) error {
 		nested := &Pipeline[T]{beforeHooks: p.beforeHooks, steps: steps, options: p.options}
 		return nested.RunWithContext(ctx)
 	})
@@ -82,9 +83,9 @@ func (p *Pipeline[T]) NewStep(name string, action ActionFunc[T]) Step[T] {
 	return NewStep[T](name, action)
 }
 
-// If is syntactic sugar for If combined with NewStep.
-func (p *Pipeline[T]) If(predicate Predicate[T], name string, action ActionFunc[T]) Step[T] {
-	return If[T](predicate, p.NewStep(name, action))
+// When is syntactic sugar for NewStep combined with Step.When.
+func (p *Pipeline[T]) When(predicate Predicate[T], name string, action ActionFunc[T]) Step[T] {
+	return NewStepIf[T](predicate, name, action)
 }
 
 // RunWithContext executes the Pipeline.
@@ -116,6 +117,12 @@ func (p *Pipeline[T]) doRun(ctx T) Result {
 			result := p.fail(ctx.Err(), step)
 			return result
 		default:
+			if step.Condition != nil {
+				skipStep := !step.Condition(ctx)
+				if skipStep {
+					continue
+				}
+			}
 			for _, hooks := range p.beforeHooks {
 				hooks(step)
 			}

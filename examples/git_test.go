@@ -20,7 +20,7 @@ type GitContext struct {
 func TestExample_Git(t *testing.T) {
 	p := pipeline.NewPipeline[context.Context]()
 	p.WithSteps(
-		p.If(pipeline.Not(DirExists("my-repo")),
+		p.When(pipeline.Not(DirExists("my-repo")),
 			"clone repository", CloneGitRepository(),
 		),
 		p.NewStep("checkout branch", CheckoutBranch()),
