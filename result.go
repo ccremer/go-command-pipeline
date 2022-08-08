@@ -30,3 +30,8 @@ func (r resultImpl) Error() string {
 func (r resultImpl) Name() string {
 	return r.name
 }
+
+// Unwrap implements xerrors.Wrapper.
+func (r resultImpl) Unwrap() error {
+	return r.err
+}
