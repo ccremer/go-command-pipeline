@@ -12,7 +12,6 @@ type resultImpl struct {
 	name string
 }
 
-// newResult is the constructor for all properties.
 func newResult(stepName string, err error) Result {
 	if err == nil {
 		panic("error cannot be nil: " + stepName)
