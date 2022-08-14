@@ -13,6 +13,7 @@ import (
 func TestExample_Hooks(t *testing.T) {
 	p := pipeline.NewPipeline[context.Context]()
 	p.WithBeforeHooks(func(step pipeline.Step[context.Context]) {
+		// Hooks can be used for logging purposes.
 		fmt.Println(fmt.Sprintf("Entering step: %s", step.Name))
 	})
 	p.WithSteps(
